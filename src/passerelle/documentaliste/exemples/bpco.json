@@ -1,0 +1,143 @@
+{
+  "question": "quel parcours de soins la Haute Autorité de Santé décrit-elle pour la bronchopneumopathie chronique obstructive ?",
+  "issue": "reponse",
+  "refus": "Les extraits ne détaillent pas l'intégralité du parcours de soins (ex. : étapes précises de suivi, coordination entre professionnels, ou modalités de réévaluation).",
+  "affirmations": [
+    {
+      "texte": "Le guide décrit le parcours de soins d’une personne ayant une BPCO, couvrant toutes les formes de la maladie, des stades léger et modéré au stade sévère.",
+      "extrait": 3
+    },
+    {
+      "texte": "Le parcours inclut la démarche diagnostique, la prise en charge jusqu’aux soins palliatifs, et signale les points de prise en charge sociale sans la détailler.",
+      "extrait": 3
+    },
+    {
+      "texte": "Le guide a été publié en 2012 et mis à jour en juin 2014 avec l’ajout du plan personnalisé de santé.",
+      "extrait": 3
+    },
+    {
+      "texte": "Le parcours de soins concerne les personnes adultes suspectes ou atteintes de BPCO.",
+      "extrait": 5
+    },
+    {
+      "texte": "Les professionnels concernés par le parcours incluent principalement médecins généralistes, pneumologues, cardiologues, professionnels ayant une compétence en addictologie, pharmaciens, infirmier(ère)s, masseurs-kinésithérapeutes, enseignants en activité physique adaptée, diététicien(ne)s, et psychologues.",
+      "extrait": 5
+    },
+    {
+      "texte": "Le parcours inclut la promotion, la consultation et la prescription médicale d’activité physique et sportive pour les patients ayant une BPCO.",
+      "extrait": 1
+    },
+    {
+      "texte": "Le parcours vise à améliorer la qualité des soins par la prescription appropriée de spirométrie et des traitements de la BPCO.",
+      "extrait": 5
+    },
+    {
+      "texte": "Le parcours inclut la communication sur les directives anticipées et la personne de confiance.",
+      "extrait": 5
+    }
+  ],
+  "passages": [
+    {
+      "numero": 1,
+      "document": "2020-01-30_app_361_rapport_pertinence_bpco_cd_2019_11_20_v0",
+      "page": 41,
+      "texte": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO).  Solidarités et de la Santé; 2018.\n https://solidarites-\n9. Haute Autorité de santé. Comment mettre en œuvre la sante.gouv.fr/IMG/pdf/calendrier_vaccinations_2018.pdf\nréhabilitation respiratoire pour les patients ayant une\nbronchopneumopathie chronique obstructive. Note 18. Haute Autorité de santé. Promotion, consultation et\n prescription médicale d’activité physique et sportive pour la\n\n\n\n\n Pertinence des soins - Rapport d’élaboration – novembre 2019 I 41",
+      "titre": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO)",
+      "url": "https://www.has-sante.fr/jcms/c_1242507/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2020-01-30"
+    },
+    {
+      "numero": 2,
+      "document": "2022-04-06_iqss_2022_-_bpco_rapport_de_developpement_mars_2022",
+      "page": 51,
+      "texte": "Indicateurs de qualité du parcours - Livrables sur les indicateurs BPCO. onique obstructive https://doi.org/10.1016/j.rmr.2017.03.001\n(BPCO). Actualisation 2019. Saint-Denis La\nPlaine: HAS; 2014. 10. Haute Autorité de Santé. Comment prévenir\nhttps://www.has-sante.fr/upload/docs/application/pdf/2020-\n01/app_323_guide_bpco_actu_2019_vf.pdf les ré-hospitalisations après une exacerbation\n de bronchopneumopathie chronique\n4. Haute Autorité de Santé. Indicateurs de obstructive ? Outil d’amélioration des pratiques.\nqualité du parcours de soins. Patients à risque Saint Denis La Plaine: HAS; 2014.\nou atteints de Bronchopneumopathie https://www.has-sante.fr//portail/jcms/c_1744728/fr/comment- prevenir-les-re-hospitalisations-apres-une-exacerbation-de-\nChronique Obstructive bronchopneumopathie-chronique-obstructive?preview=true\nBPCO. Saint-Denis La Plaine: HAS; 2020.\nhttps://www.has-sante.fr/upload/docs/application/pdf/2020- 11. Haute Autorité de Santé. BPCO : 3 outils\n",
+      "titre": "Indicateurs de qualité du parcours - Livrables sur les indicateurs BPCO",
+      "url": "https://www.has-sante.fr/jcms/p_3333091/",
+      "type_publication": "EtudeEtEnquete",
+      "mise_en_ligne": "2022-04-06"
+    },
+    {
+      "numero": 3,
+      "document": "2020-01-30_app_323_guide_bpco_actu_2019_vf",
+      "page": 9,
+      "texte": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO). Guide du parcours de soins « Bronchopneumopathie chronique obstructive »\n Stratégie de transformation du système de santé\n\n\n\nIntroduction\n\nCe guide décrit le parcours de soins d’une personne ayant une bronchopneumopathie chronique\nobstructive (BPCO) :\n\n son champ concerne toutes les formes de la BPCO, des stades léger et modéré au stade\n sévère ;\n il décrit la démarche diagnostique, la prise en charge jusqu’aux soins palliatifs ;\n il signale les points de prise en charge sociale sans la détailler.\n\nContexte\n\nCe guide publié en 2012 et mis à jour en juin 2014 avec l’ajout du plan personnalisé de santé\ndemande à être actualisé car de nouvelles recommandations ont été publiées, notamment sur\nl’arrêt de la consommation de tabac (HAS 2014) (1), le traitement médicamenteux (SPLF 2016)\n(2), les exacerbations de BPCO (SPLF 2017) (3), l’actualisation en 2018 de la recommandation du\nNational Insti",
+      "titre": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO)",
+      "url": "https://www.has-sante.fr/jcms/c_1242507/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2020-01-30"
+    },
+    {
+      "numero": 4,
+      "document": "2020-01-30_app_323_guide_bpco_actu_2019_vf",
+      "page": 144,
+      "texte": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO). . Ventilation mécanique à hospitalisations après une exacerbation de\ndomicile. Dispositifs médicaux et prestations associées pour bronchopneumopathie chronique obstructive ? Points clés,\ntraitement de l’insuffisance respiratoire. Révision de solutions et organisation des parcours Saint-Denis La\ncatégories homogènes de dispositifs médicaux. Saint Denis Plaine: HAS; 2014.\nLa Plaine: HAS; 2012. https://www.hassante.fr//portail/jcms/c_1744728/fr/comment-prevenir-les-re-\n43. Haute Autorité de Santé. Les directives anticipées. hospitalisations-apres-une-exacerbation-de-\nDocument destiné aux professionnels de santé et du secteur bronchopneumopathie-chronique-obstructive?preview=true\nmédico-social et social. Saint-Denis La Plaine: HAS; 2016.\nhttps://www.has-sante.fr/jcms/c_2619437/fr/les-directives- 53. Haute Autorité de Santé. Volet médicamenteux de la\nanticipees-concernant-les-situations-de-fi",
+      "titre": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO)",
+      "url": "https://www.has-sante.fr/jcms/c_1242507/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2020-01-30"
+    },
+    {
+      "numero": 5,
+      "document": "2020-01-30_app_361_rapport_pertinence_bpco_cd_2019_11_20_v0",
+      "page": 45,
+      "texte": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO). Fiche descriptive\n\n\n Titre Fiche pertinence Bronchopneumopathie chronique obstructive\n\nMéthode de travail Méthode d’élaboration des fiches mémo et des fiches pertinence (HAS, 2016)\n\n Améliorer la qualité des soins par la prescription appropriée de spirométrie et des traitements\nObjectif(s)\n de la BPCO et par la communication sur les directives anticipées et la personne de confiance\n\nPatients ou usagers La fiche concerne les personnes adultes suspectes ou atteintes de BPCO.\nconcernés\n\n Principalement médecins généralistes, pneumologues, cardiologues, professionnels ayant une\nProfessionnel(s)\n compétence en addictologie, pharmaciens, infirmier(ère)s, masseurs-kinésithérapeutes,\nconcerné(s)\n enseignants en activité physique adaptée, diététicien(ne)s, psychologues\n\nDemandeur Haute Autorité de santé\n\n Haute Autorité de santé (HAS), service évaluation de la pertinence des soins et amélioration",
+      "titre": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO)",
+      "url": "https://www.has-sante.fr/jcms/c_1242507/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2020-01-30"
+    },
+    {
+      "numero": 6,
+      "document": "2020-01-30_app_323_guide_bpco_actu_2019_vf",
+      "page": 46,
+      "texte": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO). Guide du parcours de soins « Bronchopneumopathie chronique obstructive »\n Stratégie de transformation du système de santé\n\nFigure 2. Traitement médicamenteux de la BPCO à l’état stable\n\n\n\n\n\n 46",
+      "titre": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO)",
+      "url": "https://www.has-sante.fr/jcms/c_1242507/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2020-01-30"
+    },
+    {
+      "numero": 7,
+      "document": "2020-01-30_app_323_guide_bpco_actu_2019_vf",
+      "page": 143,
+      "texte": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO). Guide du parcours de soins « Bronchopneumopathie chronique obstructive »\n Stratégie de transformation du système de santé\n\n\n\n20. Haute Autorité de Santé. Test de Fagerström. Outil https://www.hasassocié à la recommandation de bonne pratique « Arrêt de sante.fr/portail/upload/docs/application/pdf/2018-\nla consommation de tabac : du dépistage individuel au 10/ref_aps_bpco_vf.pdf\nmaintien de l’abstinence » Saint Denis La Plaine: HAS;\n2014. 30. Haute Autorité de Santé. La consultation médicale.\nhttps://www.has-sante.fr/upload/docs/application/pdf/2014- Guide de promotion, consultation et prescription médicale\n11/outil_tests_fagerstrom.pdf d’activité physique et sportive pour la santé chez les adultes.\n Saint Denis La Plaine: HAS; 2019.\n21. Haute Autorité de Santé. Modèle transthéorique des https://www.has-sante.fr/upload/docs/application/pdf/2018-\nchangements de comportements de Prochaska et",
+      "titre": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO)",
+      "url": "https://www.has-sante.fr/jcms/c_1242507/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2020-01-30"
+    },
+    {
+      "numero": 8,
+      "document": "2018-12-13_app_239_rapport_ssr_bpco_cd_2018_12_05_vfinale",
+      "page": 31,
+      "texte": "Pertinence de la prise en charge des patients en SSR après hospitalisation en MCO pour exacerbation de bronchopneumopathie. Références\n\n\n\n\n\n1. Haute Autorité de santé. « Bronchopneumopathie 9. British Columbia Ministry of Health. Chronic Obstructive\nchronique obstructive ». Guide parcours de soins. Saint- Pulmonary Disease (COPD): diagnosis and management.\nDenis La Plaine: HAS; 2014. Vancouver: BCMOH; 2017.\nhttps://www.has- https://www2.gov.bc.ca/assets/gov/health/practitionersante.fr/portail/upload/docs/application/pdf/2012- pro/bc-guidelines/copd_full_guideline.pdf\n04/guide_parcours_de_soins_bpco_finale.pdf\n 10. Department of Veterans Affairs, Department of\n2. Haute Autorité de Santé. « Comment prévenir les ré- Defense. Clinical practice guideline for the management of\nhospitalisations après une exacerbation de chronic obstructive pulmonary disease. Washington:\nbronchopneumopathie chronique obstructive ». Fiche VA/DoD; 2014.\nPoints Clés & Solutions . Saint-Denis La Plaine: HAS; https://www.healthquality.va.",
+      "titre": "Pertinence de la prise en charge des patients en SSR après hospitalisation en MCO pour exacerbation de bronchopneumopathie",
+      "url": "https://www.has-sante.fr/jcms/c_2891394/",
+      "type_publication": "EvaluationDesPratiques",
+      "mise_en_ligne": "2018-12-13"
+    },
+    {
+      "numero": 9,
+      "document": "2020-01-30_app_361_rapport_pertinence_bpco_cd_2019_11_20_v0",
+      "page": 2,
+      "texte": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO). Ce rapport est téléchargeable sur :\n www.has-sante.fr\n\n\n Haute Autorité de santé\n\n Service communication - information\n\n 5, avenue du Stade de France – F 93218 Saint-Denis La Plaine Cedex\n\n Tél. : +33 (0)1 55 93 70 00 – Fax : +33 (0)1 55 93 74 00\n\n\n\n\n\n© Haute Autorité de santé - Novembre 2019",
+      "titre": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO)",
+      "url": "https://www.has-sante.fr/jcms/c_1242507/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2020-01-30"
+    },
+    {
+      "numero": 10,
+      "document": "2020-01-30_app_323_guide_bpco_actu_2019_vf",
+      "page": 144,
+      "texte": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO). Guide du parcours de soins « Bronchopneumopathie chronique obstructive »\n Stratégie de transformation du système de santé\n\n\n\npar la Commission : 20 février 2019. Saint Denis La Plaine: 48. Haute Autorité de Santé. Mettre en œuvre la conciliation\nHAS; 2019. des traitements médicamenteux en établissement de santé.\nhttps://www.has-sante.fr/upload/docs/evamed/CT- Sécuriser la prise en charge médicamenteuse du patient lors\n17439_TRELEGY_ELLIPTA_PIC_EI_Avis3_CT17439.pdf de son parcours de soins. Saint Denis La Plaine: HAS; 2018.\n https://www.has-sante.fr/upload/docs/application/pdf/2017-\n39. Haute Autorité de Santé. TRIMBOW 01/dir1/guide_conciliation_des_traitements_medicamenteux\n(béclométasone/formotérol/glycopyrronium), association _en_etablissement_de_sante.pdf\ncorticoïde inhalé (CSI), bronchodilatateur bêta-2 agoniste\nde longue durée d’action (LABA) et bronchodilatateur 49. Allenet B, Just",
+      "titre": "Guide du parcours de soins bronchopneumopathie chronique obstructive (BPCO)",
+      "url": "https://www.has-sante.fr/jcms/c_1242507/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2020-01-30"
+    }
+  ],
+  "defauts": [],
+  "redaction_indisponible": false
+}

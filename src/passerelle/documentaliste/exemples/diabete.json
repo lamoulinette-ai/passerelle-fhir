@@ -1,0 +1,139 @@
+{
+  "question": "quel parcours de soins la Haute Autorité de Santé décrit-elle pour le diabète de type 2 ?",
+  "issue": "reponse",
+  "refus": "Les extraits ne détaillent pas les étapes spécifiques du dépistage et du diagnostic initial, ni les modalités de prise en charge des complications.",
+  "affirmations": [
+    {
+      "texte": "Le parcours de soins du patient adulte vivant avec un diabète de type 2 (DT2) inclut un suivi régulier pour optimiser le contrôle glycémique et dépister précocement d’éventuelles complications.",
+      "extrait": 8
+    },
+    {
+      "texte": "En dehors du suivi spécifique des complications déjà diagnostiquées, le patient DT2 doit bénéficier d’un suivi annuel décrit dans une check-list incluant anamnèse, tabagisme, sédentarité, alimentation, score de risque cardiovasculaire global (SCORE2-diabetes), vaccinations et événements médicaux intercurrents.",
+      "extrait": 8
+    },
+    {
+      "texte": "Le guide de la HAS décrit les différentes étapes du dépistage, du diagnostic, de la prise en charge initiale, du traitement et du suivi du patient DT2, incluant la recherche et la prise en charge des complications.",
+      "extrait": 6
+    },
+    {
+      "texte": "Un plan chronologique de soins présente le suivi minimal de base nécessaire à la prise en charge optimale du patient DT2, avec des consultations de suivi tous les 3 mois (M3, M6, M9, M12, M15, M18, M21, M24) réalisées par des professionnels de soins primaires.",
+      "extrait": 5
+    },
+    {
+      "texte": "Le parcours de soins du patient DT2 aborde des situations particulières comme la grossesse, les personnes âgées, les personnes en situation de grande précarité, l’hospitalisation, les soins palliatifs et le jeûne.",
+      "extrait": 6
+    },
+    {
+      "texte": "La HAS a élaboré un guide de bonnes pratiques pour faciliter la mise en œuvre de la télémédecine et du télésoin dans le parcours de soins du patient DT2, avec des définitions, acteurs impliqués, conditions de mise en œuvre et informations sur le remboursement.",
+      "extrait": 1
+    },
+    {
+      "texte": "Les bonnes pratiques de télémédecine et télésoin s’appliquent au contexte de la prise en charge du patient DT2, qu’elles soient remboursées ou non.",
+      "extrait": 1
+    }
+  ],
+  "passages": [
+    {
+      "numero": 1,
+      "document": "2025-07-16_parcours_de_soins_du_patient_adulte_vivant_avec_un_diabete_de_type_2_-_guide_2025-07-15_16-42-8_797",
+      "page": 82,
+      "texte": "Parcours de soins du patient adulte vivant avec un diabète de type 2. stes, pédicures-podologues, pharmaciens,\n etc.\nL’Annexe 7 décrit les cinq actes de télémédecine et l’activité de télésoin : définitions issues du Code\nde la santé publique, acteurs impliqués, conditions de mise en œuvre et informations sur le remboursement.\nLa Haute Autorité de santé a élaboré plusieurs documents, notamment un guide de bonnes pratiques,\npour faciliter la mise en œuvre de cette pratique à distance par les professionnels de santé et informer\nles patients (68-70)52,53,54. Ces bonnes pratiques sont décrites en Annexe 8. Elles s’appliquent que\nl’acte de télésanté soit remboursé ou non. Elles sont transposables au contexte de la prise en charge\ndu patient DT2.\n\n 9.5.1. Tirer avantage de la télésanté dans le parcours de soins DT2\nDans le cadre du parcours de soins DT2, les modalités de pratique à distance présentent des avantages pour les patients, mais également pour les équip",
+      "titre": "Parcours de soins du patient adulte vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3634754/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2025-07-16"
+    },
+    {
+      "numero": 2,
+      "document": "2025-07-16_parcours_de_soins_du_patient_adulte_vivant_avec_un_diabete_de_type_2_-_guide_2025-07-15_16-42-8_797",
+      "page": 105,
+      "texte": "Parcours de soins du patient adulte vivant avec un diabète de type 2.  parcours de soins. Saint-Denis La Plaine: HAS; recommendations-for-managing-type-2-diabetes-in-primary-\n2014. care.html\nhttps://www.has-sante.fr/portail/jcms/c_1735060/fr/guideparcours-de-soins-diabete-de-type-2-de-l-adulte 15. American Diabetes Association. Standards of diabetes\n care 2024 Diabetes Care 2024;47.\n5. Haute Autorité de santé. Stratégie thérapeutique du\npatient vivant avec un diabète de type 2. Saint-Denis La 16. European Society of Cardiology, European\nPlaine: HAS; 2024. Association for the Study of Diabetes, Cosentino F, Grant\nhttps://www.has-sante.fr/upload/docs/application/pdf/2024- PJ, Aboyans V, Bailey CJ, et al. 2019 ESC Guidelines on\n06/strategie_therapeutique_du_patient_vivant_avec_un_diabete diabetes, pre-diabetes, and cardiovascular diseases\n_de_type_2_-_rapport_delaboration.pdf developed in collaboration with the EASD. Eur Heart J\n 2020;41(2):255-323.\n6. Haute ",
+      "titre": "Parcours de soins du patient adulte vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3634754/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2025-07-16"
+    },
+    {
+      "numero": 3,
+      "document": "2024-06-06_strategie_therapeutique_du_patient_vivant_avec_un_diabete_de_type_2_-_rapport_delaboration",
+      "page": 14,
+      "texte": "Stratégie thérapeutique du patient vivant avec un diabète de type 2. 15. Quand et comment utiliser les inhibiteurs de la SGLT2 ou gliflozines en pratique clinique ? Un\n consensus proposé par la Société francophone du diabète (SFD), la Société française de\n cardiologie (SFC), le Collège national des cardiologues français (CNCF) et la Société\n francophone de néphrologie, dialyse et transplantation (SFND), 2023 (18)\n 16. Prise de position de la Société francophone du diabète (SFD) sur les stratégies d’utilisation des\n traitements anti-hyperglycémiants dans le diabète de type 2, 2021 (19)\n 17. Prise de position de la Société francophone du diabète (SFD) : évaluation du rapport\n bénéfices/risques des inhibiteurs de SGLT2, 2019 (20)\n 18. Prise de position de la Société francophone du diabète (SFD) sur la prise en charge\n médicamenteuse de l’hyperglycémie du patient diabétique de type 2, 2017 (21)\n\nHaute Autorité de santé (HAS)\n 19. Guide du parcours de soins – ",
+      "titre": "Stratégie thérapeutique du patient vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3191108/",
+      "type_publication": "RecommandationsProfessionnelles",
+      "mise_en_ligne": "2024-06-06"
+    },
+    {
+      "numero": 4,
+      "document": "2025-07-16_parcours_de_soins_du_patient_adulte_vivant_avec_un_diabete_de_type_2_-_les_points_critiques_du_parco_cd54d329",
+      "page": 16,
+      "texte": "Parcours de soins du patient adulte vivant avec un diabète de type 2. onduire, professionnel de la\n santé sexuelle\n\n\n\n\n\n 2025\n juin\n –\n santé\n de\nCe document présente les points essentiels de la publication : Parcours de soins du patient adulte vivant avec un diabète de type 2 : les\n points critiques du parcours, Méthode, juin 2025 Autorité Toutes nos publications sont téléchargeables sur www.has-sante.fr\n Haute\n HAS • Parcours de soins du patient adulte vivant avec un diabète de type 2 : les points critiques du parcours • juin 2025 16 ©",
+      "titre": "Parcours de soins du patient adulte vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3634754/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2025-07-16"
+    },
+    {
+      "numero": 5,
+      "document": "2025-07-16_plan_chrono_diabete_type2_04_juillet_v2",
+      "page": 1,
+      "texte": "Parcours de soins du patient adulte vivant avec un diabète de type 2. Plan chronologique de soins du patient adulte vivant avec un diabète de type 2\n\n\n\nCe schéma temporel décrit le suivi minimal de base nécessaire à la prise en charge optimale du patient adulte vivant avec un diabète de type 2, en dehors de la prise en\ncharge des complications. En présence de complications, un suivi spécialisé supplémentaire devra être mis en place (ophtalmologue, cardiologue, néphrologue…).\n\n T0 M12 M24\n M3 M6 M9 M15 M18 M21\n\n\n\n\n\n Professionnel de santé Professionnel de santé de soins Professionnel de santé Professionnel de santé de soins Professionnel de santé\n de soins primaires1 primaires1 de soins primaires1 primaires1 de soins primaires1\n Cf. fiche check-list du Consultation de suivi tous les 3 mois Cf. fiche check-list du Consultation de suivi tous les 3 mois Cf. fiche check-list du\n bilan initial : IMC, PA, Cf. fiche check-list du suivi suivi : vulnérabilité, bilan",
+      "titre": "Parcours de soins du patient adulte vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3634754/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2025-07-16"
+    },
+    {
+      "numero": 6,
+      "document": "2025-07-16_parcours_de_soins_du_patient_adulte_vivant_avec_un_diabete_de_type_2_-_guide_2025-07-15_16-42-8_797",
+      "page": 7,
+      "texte": "Parcours de soins du patient adulte vivant avec un diabète de type 2. le patient (surutilisation), mais aussi à réduire la sous-utilisation de soins lorsqu’ils sont indispensables pour éviter une perte de chance.\nChamp\nCe guide décrit le parcours de soins du patient adulte vivant avec un diabète de type 2 (patient DT2).\n ‒ À l’instar du guide précédent, les différentes étapes du dépistage et du diagnostic, de la prise\n en charge initiale, du traitement et du suivi du patient sont détaillées, incluant également la\n recherche et la prise en charge des complications. Les points de prise en charge sociale sont\n signalés lorsque nécessaires, sans les détailler.\n ‒ Des situations particulières sont abordées : la grossesse chez la patiente diabétique ainsi que\n le diabète gestationnel, les personnes âgées, les personnes en situation de grande précarité,\n lors d’une hospitalisation, les soins palliatifs et le jeûne.\n ‒ Le guide aborde le rôle des professionnels de",
+      "titre": "Parcours de soins du patient adulte vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3634754/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2025-07-16"
+    },
+    {
+      "numero": 7,
+      "document": "2024-06-06_strategie_therapeutique_du_patient_vivant_avec_un_diabete_de_type_2_-_rapport_delaboration",
+      "page": 183,
+      "texte": "Stratégie thérapeutique du patient vivant avec un diabète de type 2. ion de bonne pratique, juin 2022 (25)\n22. Guide de consultation et prescription médicale d’activité physique à des fins de santé chez\n l’adulte, 2022 (27)\n23. Guide des connaissances sur l’activité physique et la sédentarité, 2022 (28)\n24. Fiche de synthèse de prescription d’activité physique – Diabète de type 2, 2022 (29)\n25. Diabète de type 2 de l’adulte, guide parcours de soins, Haute Autorité de santé, 2014 (30)\n26. BMJ rapid recommendation, Benefits and harms of drug treatment for type 2 diabetes:\n systematic review and network meta-analysis of randomized controlled trials, 2023 (31)\n (actualisation de la méta-analyse en réseau publiée par Li, 2021 (32))\n27. Diabetic kidney disease in type 2 diabetes: a consensus statement from the Swiss Societies of\n Diabetes and Nephrology, 2023 (33)\n28. 2023 AACE Consensus Statement: Comprehensive Type 2 Diabetes Management Algorithm,\n 2023 (34)\n",
+      "titre": "Stratégie thérapeutique du patient vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3191108/",
+      "type_publication": "RecommandationsProfessionnelles",
+      "mise_en_ligne": "2024-06-06"
+    },
+    {
+      "numero": 8,
+      "document": "2025-07-16_parcours_dt2_fiche_outil_check_list_suivi_hors_complication",
+      "page": 1,
+      "texte": "Parcours de soins du patient adulte vivant avec un diabète de type 2. RECOMMANDER LES BONNES PRATIQUES\n\n\nFICHE Parcours de soins du patient\n adulte vivant avec un diabète de\n type 2 : check-list du suivi\n\n\n Adoptée par le Collège le 26 juin 2025\n\n\n En dehors du suivi spécifique d’éventuelles complications déjà diagnostiquées, le patient adulte\n vivant avec un diabète de type 2 doit bénéficier d’un suivi régulier afin d’optimiser le contrôle glycémique et de dépister d’éventuelles nouvelles complications pour les prendre en charge précocement.\nLe suivi annuel est décrit dans la check-list suivante.\n\n M3 M6 M9 M12\n\n Anamnèse\n\n Tabagisme avec intervention brève, consommation X X X X\n d’alcool\n\n Sédentarité et activité physique X X X X\n\n Alimentation – Historique du poids X X X X\n\n Score de risque cardiovasculaire global : SCORE2- X\n diabetes\n\n Vaccinations X\n\n Évènements médicaux intercurrents X X X X\n\n Symptômes divers : angor, claudication intermittente X X",
+      "titre": "Parcours de soins du patient adulte vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3634754/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2025-07-16"
+    },
+    {
+      "numero": 9,
+      "document": "2025-07-16_decision_n2025_0159dcsbp_du_26_juin_2025_du_college_de_la_haute",
+      "page": 1,
+      "texte": "Parcours de soins du patient adulte vivant avec un diabète de type 2.  sont adoptés :\n\n - un guide « parcours de soins du patient adulte vivant avec un diabète de type 2 » et une synthèse des\n recommandations sélectionnées ;\n - une synthèse des points critiques du parcours ;\n - une fiche de 14 messages-clés pour améliorer votre pratique ;\n - une vue d’ensemble du parcours ;\n - un plan chronologique de soins ;\n - une fiche sur la place de la télésanté.\n\n\n\n Article 2\n\n\nLe directeur général de la Haute Autorité de santé est chargé de l’exécution de la présente décision qui sera\npubliée au Bulletin officiel de la Haute Autorité de santé.\n\n\n\n\nFait le 26 juin 2025.\n\n\n\n Pour le collège :\n Le président de la Haute Autorité de santé,\n P R LIONEL COLLET\n Signé\n\n\n\n\n 5 avenue du Stade de France - F 93218 Saint-Denis La Plaine CEDEX - Tél. : +33(0) 1 55 93 70 00\n www.has-sante.fr - N° SIRET : 110 000 445 00020 - code APE : 8411 Z",
+      "titre": "Parcours de soins du patient adulte vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3634754/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2025-07-16"
+    },
+    {
+      "numero": 10,
+      "document": "2025-07-16_parcours_de_soins_du_patient_adulte_vivant_avec_un_diabete_de_type_2_-_guide_2025-07-15_16-42-8_797",
+      "page": 9,
+      "texte": "Parcours de soins du patient adulte vivant avec un diabète de type 2. 2\nest également fortement influencé par les déterminants sociaux de la santé.\nAutres types de diabètes spécifiques : secondaires à une maladie pancréatique ou endocrinienne,\nliés à des défauts génétiques, induits par des médicaments ou des toxiques, diabète gestationnel…\nIl existe une autre classification phénotypique de diabètes basée sur une étude suédoise réalisée au\ndiagnostic mais qui, à ce jour, ne permet pas de recommandations spécifiques (8).\n\n Seul le parcours de soins du patient adulte vivant avec un diabète de type 2 (patient DT2) sera\n traité dans ce guide. Compte tenu du risque accru de diabète chez la femme enceinte, le diabète\n gestationnel sera également abordé au chapitre 7. Diabète et grossesse.\n\n\n\n\n\n HAS • Parcours de soins du patient adulte vivant avec un diabète de type 2 • juin 2025 9",
+      "titre": "Parcours de soins du patient adulte vivant avec un diabète de type 2",
+      "url": "https://www.has-sante.fr/jcms/p_3634754/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2025-07-16"
+    }
+  ],
+  "defauts": [],
+  "redaction_indisponible": false
+}

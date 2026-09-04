@@ -1,0 +1,55 @@
+# Déploiement de la passerelle. En local : `docker compose up --build`.
+# Sur le VPS : `docker compose pull && docker compose up -d` (image du registre).
+#
+# Un seul service : le serveur FHIR est distant, et le moteur documentaire tourne dans son
+# propre projet. Rien de lourd à héberger ici.
+
+services:
+  api:
+    image: ${PASSERELLE_IMAGE:-ghcr.io/lamoulinette-ai/passerelle-fhir:latest}
+    container_name: passerelle-api
+    build:
+      context: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8006:8006"   # exposé en local ; Caddy fait le TLS devant
+    networks:
+      # Réseau dédié aux deux API, et à elles seules. La base du documentaliste n'y est pas :
+      # un réseau partagé donne accès à tout ce qui s'y trouve, et un service qui n'a pas
+      # besoin de parler à PostgreSQL ne doit pas pouvoir le joindre.
+      - documentaire
+    # --- Durcissement, même gabarit que le documentaliste et l'auditeur ---
+    read_only: true
+    tmpfs:
+      # Le service n'écrit nulle part ailleurs. Les réponses de secours sont dans l'image,
+      # le registre des traces et les sessions vivent en mémoire.
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    # Aucun modèle en mémoire, contrairement au documentaliste : 256 Mo suffisent largement.
+    # Le VPS n'a aucune zone d'échange, et l'auditeur est une victime plus grosse que ce
+    # service si l'OOM killer devait choisir.
+    mem_limit: 256m
+    cpus: 1.0
+    ulimits:
+      nofile: 2048
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request,sys;
+          sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8006/health',timeout=4).status==200 else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  documentaire:
+    external: true
+    name: lm_documentaire

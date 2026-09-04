@@ -1,0 +1,135 @@
+{
+  "question": "quel parcours de soins la Haute Autorité de Santé décrit-elle pour l'insuffisance cardiaque ?",
+  "issue": "reponse",
+  "refus": "Le parcours de soins détaillé (étapes chronologiques, acteurs précis, modalités de coordination) n'est pas décrit dans les extraits fournis.",
+  "affirmations": [
+    {
+      "texte": "Ce guide décrit le parcours de soins d’une personne ayant une insuffisance cardiaque (IC) chronique.",
+      "extrait": 1
+    },
+    {
+      "texte": "L’objectif de ce guide est d’expliciter le processus de prise en charge d’un malade ayant une insuffisance cardiaque (IC) chronique en médecine de ville et notamment en médecine générale.",
+      "extrait": 3
+    },
+    {
+      "texte": "Ce guide décrit l’ensemble du parcours de soins d’un malade ayant une IC chronique, en distinguant les soins généraux s’inscrivant dans la durée et les soins plus spécialisés.",
+      "extrait": 5
+    },
+    {
+      "texte": "Il concerne les professionnels généralistes (médecins généralistes, infirmiers, pharmaciens, etc.) ainsi que les professionnels intervenant dans des situations spécifiques (cardiologues, autres médecins spécialistes).",
+      "extrait": 5
+    },
+    {
+      "texte": "La réadaptation cardiaque est indiquée comme pour tout patient en insuffisance cardiaque.",
+      "extrait": 8
+    },
+    {
+      "texte": "Le programme du retour à domicile (PRADO) insuffisance cardiaque favorise le retour à domicile des patients insuffisants cardiaques et peut être une modalité de suivi pour certains patients.",
+      "extrait": 8
+    }
+  ],
+  "passages": [
+    {
+      "numero": 1,
+      "document": "2014-07-24_guide_parcours_de_soins_ic_web",
+      "page": 8,
+      "texte": "Guide parcours de soins insuffisance cardiaque. Guide du parcours de soins « Insuffisance cardiaque »\n\nIntroduction\n\nCe guide décrit le parcours de soins d’une personne ayant une insuffisance cardiaque (IC)\nchronique.\n\nL’insuffisance cardiaque (IC) est un syndrome clinique où les patients présentent les\ncaractéristiques suivantes (ESC, 2008) :\n\n des symptômes (dyspnée, fatigue) et des signes caractéristiques de l’IC (tachycardie,\n polypnée, râles crépitants pulmonaires, épanchement pleural, turgescence jugulaire, œdèmes\n périphériques, hépatomégalie)\nEt\n\n une preuve objective d’une anomalie structurelle ou fonctionnelle du cœur au repos\n (cardiomégalie, 3e bruit cardiaque, souffle cardiaque, anomalie à l’échocardiogramme,\n élévation du dosage des peptides natriurétiques).\n\n\nÀ l’échocardiographie, une FE < 40 - 50 % affirme l’IC systolique (ICS).\n\nSinon, des critères de trouble de la relaxation et de dysfonction diastolique précis doiv",
+      "titre": "Guide parcours de soins insuffisance cardiaque",
+      "url": "https://www.has-sante.fr/jcms/c_1242988/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2014-07-24"
+    },
+    {
+      "numero": 2,
+      "document": "2024-03-20_guide_proms_insuffisance_cardiaque_novembre_2022",
+      "page": 7,
+      "texte": "Guides d’utilisation des PROMs en pratique clinique courante.  constat conduit à renforcer\nles mesures de prise en charge, de suivi et d’évaluation (6).\n\nLe guide du parcours de soins « Insuffisance cardiaque », publié en 2014, décrit les caractéristiques\ndes patients atteints d’insuffisance cardiaque (cf. lien suivant : https://www.hassante.fr/upload/docs/application/pdf/2012-04/guide_parcours_de_soins_ic_web.pdf) (7).\n\nL’insuffisance cardiaque (IC) est un syndrome clinique où les patients présentent les caractéristiques\nsuivantes (ESC, 2008) (7) :\n\n\n\n\n\n2 Si les chercheurs ou les professionnels de santé envisagent en plus de conduire une étude médico-économique, alors il vaut mieux\nutiliser le questionnaire « EQ-5D-5L » – cf. « Choix méthodologiques pour l’évaluation économique à la HAS – 2020 ». Lien :\nhttps://www.has-sante.fr/jcms/r_1499251/fr/choix-methodologiques-pour-l-evaluation-economique-a-la-has\n3 Le questionnaire EQ-5D semble être un que",
+      "titre": "Guides d’utilisation des PROMs en pratique clinique courante",
+      "url": "https://www.has-sante.fr/jcms/p_3501799/",
+      "type_publication": "EtudeEtEnquete",
+      "mise_en_ligne": "2024-03-20"
+    },
+    {
+      "numero": 3,
+      "document": "2014-07-24_guide_parcours_de_soins_ic_web",
+      "page": 8,
+      "texte": "Guide parcours de soins insuffisance cardiaque. sage des peptides natriurétiques).\n\n\nÀ l’échocardiographie, une FE < 40 - 50 % affirme l’IC systolique (ICS).\n\nSinon, des critères de trouble de la relaxation et de dysfonction diastolique précis doivent être\nmesurés par un échographiste expérimenté pour affirmer l’insuffisance cardiaque à fraction\nd’éjection préservée (ICFEP).\n\n\nL’objectif de ce guide est :\n\n d’expliciter le processus de prise en charge d’un malade ayant une insuffisance cardiaque (IC)\n chronique en médecine de ville et notamment en médecine générale ;\n\n de rendre compte dans ce processus de la multidisciplinarité de la prise en charge ainsi que\n des principes et modalités de coordination et de coopération entre les professionnels impliqués.\nCentré sur le suivi usuel d’un malade ayant une IC chronique, ce guide décrit l’ensemble de son\nparcours de soins, en distinguant les soins généraux s’inscrivant dans la durée et le",
+      "titre": "Guide parcours de soins insuffisance cardiaque",
+      "url": "https://www.has-sante.fr/jcms/c_1242988/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2014-07-24"
+    },
+    {
+      "numero": 4,
+      "document": "2014-07-24_guide_parcours_de_soins_ic_web",
+      "page": 31,
+      "texte": "Guide parcours de soins insuffisance cardiaque. s palliatifs) sera orienté\npar l’état de santé et les préférences du patient et par les structures locales existantes.\n\n\n\n Haute Autorité de Santé / Service des maladies chroniques et des dispositifs d’accompagnement des malades/\n Juin 2014\n 31",
+      "titre": "Guide parcours de soins insuffisance cardiaque",
+      "url": "https://www.has-sante.fr/jcms/c_1242988/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2014-07-24"
+    },
+    {
+      "numero": 5,
+      "document": "2014-07-24_guide_parcours_de_soins_ic_web",
+      "page": 8,
+      "texte": "Guide parcours de soins insuffisance cardiaque. ionnels impliqués.\nCentré sur le suivi usuel d’un malade ayant une IC chronique, ce guide décrit l’ensemble de son\nparcours de soins, en distinguant les soins généraux s’inscrivant dans la durée et les soins plus\nspécialisés, sans détailler les prises en charge qui relèvent d’un plateau technique hautement\nspécialisé et/ou de soins hospitaliers. Décrivant le parcours de soins nécessité par l’IC, il devra\nêtre intégré dans le parcours complet de patients souffrant souvent de pathologies multiples.\n\nS’il s’adresse avant tout aux professionnels généralistes, médecins généralistes, infirmier(e)s,\npharmaciens, etc., il concerne également les professionnels intervenant dans des situations\nspécifiques, cardiologues, autres médecins spécialistes et les autres professionnels de santé,\nnotamment dans leur articulation avec les professionnels précités.\n\nIl fait la distinction entre insuffisance car",
+      "titre": "Guide parcours de soins insuffisance cardiaque",
+      "url": "https://www.has-sante.fr/jcms/c_1242988/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2014-07-24"
+    },
+    {
+      "numero": 6,
+      "document": "2014-07-24_guide_parcours_de_soins_ic_web",
+      "page": 54,
+      "texte": "Guide parcours de soins insuffisance cardiaque. Guide du parcours de soins « Insuffisance cardiaque »\n\nAnnexe 2. Questionnaire de qualité de vie\ndu Minnesota\n\nCette échelle doit être remplie par le patient.\n\nÀ l’aide de ce questionnaire, nous cherchons à savoir dans quelle mesure vos problèmes cardiaques vous ont empêché\nde vivre comme vous l’auriez voulu au cours du mois dernier.\n  Les phrases ci-dessous décrivent différents types d’atteintes dont peuvent souffrir certaines\n personnes. Si vous êtes sûr que ce que décrit la phrase ne s’applique pas à vous ou n’est pas lié à\n votre insuffisance cardiaque, entourez le 0 (non) et passez à la phrase suivante.\n  Lorsque au contraire vous considérez que la phrase s’applique à votre cas, entourez le chiffre qui\n vous paraît le mieux correspondre à votre état (de 1 : un peu à 5 : énormément).\nAttention, rappelez-vous de ne considérer que les 4 semaines qui viennent de passer.\nAu cours des 4",
+      "titre": "Guide parcours de soins insuffisance cardiaque",
+      "url": "https://www.has-sante.fr/jcms/c_1242988/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2014-07-24"
+    },
+    {
+      "numero": 7,
+      "document": "2014-07-24_guide_parcours_de_soins_ic_web",
+      "page": 23,
+      "texte": "Guide parcours de soins insuffisance cardiaque. Guide du parcours de soins « Insuffisance cardiaque »\n\n\n1.6 Cardiologie interventionnelle et chirurgie cardiaque\n\n1.6.1 Revascularisation myocardique\nEn cas d’ischémie myocardique documentée, une revascularisation myocardique peut être\ndiscutée, chirurgicale ou par voie endoluminale.\n\n1.6.2 Cardiologie interventionnelle ou chirurgie valvulaire\nEn cas de valvulopathie significative, une intervention peut être discutée.\n\n1.6.3 Transplantation cardiaque et assistance ventriculaire gauche\nEn cas d’insuffisance cardiaque sévère, dans certaines conditions, une transplantation cardiaque\nou la mise en place d’un dispositif d’assistance ventriculaire gauche (DAVG) peut être envisagée.\n\n1.6.4 En cas de FA rapide mal tolérée résistante au traitement médical\nL’ablation du nœud auriculo-ventriculaire avec mise en place d’un stimulateur cardiaque peut être\ndiscutée dans de rares cas.\n\n\n\n\n\n Haute Autor",
+      "titre": "Guide parcours de soins insuffisance cardiaque",
+      "url": "https://www.has-sante.fr/jcms/c_1242988/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2014-07-24"
+    },
+    {
+      "numero": 8,
+      "document": "2014-05-22_guide_pds_fibrillation_atriale_vf",
+      "page": 36,
+      "texte": "Guide parcours de soins Fibrillation atriale. arcours de soins de l'Insuffisance cardiaque (32).\n La réadaptation cardiaque est indiquée comme pour tout patient en insuffisance cardiaque.\n Le programme du retour à domicile (PRADO) insuffisance cardiaque favorise le retour à domicile des patients insuffisants cardiaques et peut être une modalité de suivi pour certains patients.\n\n► Points clés\n\n Tout patient hospitalisé pour FA compliquée d’insuffisance cardiaque doit bénéficier d’un suivi\n pluriprofessionnel en post hospitalisation.\n\n\n\n\n\nHAS  Les Parcours de Soins / Service maladies chroniques et dispositifs d’accompagnement des malades 36\nFévrier 2014",
+      "titre": "Guide parcours de soins Fibrillation atriale",
+      "url": "https://www.has-sante.fr/jcms/c_1741768/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2014-05-22"
+    },
+    {
+      "numero": 9,
+      "document": "2022-09-26_reevaluation_des_defibrillateurs_cardiaques_automatiques_implantables_avec_sondes_endocavitaires_-_r_086c2132",
+      "page": 107,
+      "texte": "Réévaluation des défibrillateurs cardiaques automatiques implantables avec sonde(s) endocavitaire(s). FV Fibrillation ventriculaire\n\nGHS Groupe homogène de séjour\n\nHAS Haute Autorité de santé\n\nHFSA Heart Failure Society of America\n\nHFrEF Insuffisance cardiaque avec fraction d'éjection réduite (heart failure with reduced ejection fraction)\n\nHRS Heart Rhythm Society\n\nIC Insuffisance cardiaque\n\nIDM Infarctus du myocarde\n\nIRE Indicateur de remplacement sélectif\n\nJCS Japanese Circulation Society\n\nJHFS Japanese Heart Failure Society\n\nJO Journal Officiel de la République Française\n\nLBBB Bloc de branche gauche (left bundle branch block)\n\nLFSS Loi de financement de la sécurité sociale\n\nLPPR Liste des produits et prestations remboursables\n\nMSC Mort subite cardiaque\n\nNHFA National Heart Foundation of Australia\n\nND Non décrit\n\nNYHA Classification de l’insuffisance cardiaque de la New York Heart Association\n\nOMS Organisation Mondiale de la santé\n\nPMSI Programme de Médicalisation des Systèmes d'Inform",
+      "titre": "Réévaluation des défibrillateurs cardiaques automatiques implantables avec sonde(s) endocavitaire(s)",
+      "url": "https://www.has-sante.fr/jcms/p_3279467/",
+      "type_publication": "EvaluationDesTechnologiesDeSante",
+      "mise_en_ligne": "2022-09-26"
+    },
+    {
+      "numero": 10,
+      "document": "2014-07-24_guide_parcours_de_soins_ic_web",
+      "page": 2,
+      "texte": "Guide parcours de soins insuffisance cardiaque. Guide du parcours de soins « Insuffisance cardiaque »\n\n\n\n\n\n Guide téléchargeable sur\n www.has-sante.fr\n\n Haute Autorité de Santé\n 2 avenue du Stade de France - F 93218 Saint-Denis La Plaine CEDEX\n Tél. :+33 (0)1 55 93 70 00 - Fax :+33 (0)1 55 93 74 00\n\n\n\n\n\nCe document a été validé par le Collège de la Haute Autorité de Santé en Février 2012\n© Haute Autorité de Santé – 2012\nCe guide à fait l’objet d’une actualisation en juin 2014 concernant :\n - l’élaboration d’un plan personnalisé de santé chez la personne âgée de plus de 75 ans à risque de\n perte d’autonomie\n\n\n\n\n Haute Autorité de Santé / Service des maladies chroniques et des dispositifs d’accompagnement des malades/\n Juin 2014\n 2",
+      "titre": "Guide parcours de soins insuffisance cardiaque",
+      "url": "https://www.has-sante.fr/jcms/c_1242988/",
+      "type_publication": "GuideMedecinALD",
+      "mise_en_ligne": "2014-07-24"
+    }
+  ],
+  "defauts": [],
+  "redaction_indisponible": false
+}

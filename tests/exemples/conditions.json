@@ -1,0 +1,84 @@
+[
+  {
+    "resourceType": "Condition",
+    "id": "526c0f8c-93db-46e9-b6a3-43dd2409c0c8",
+    "clinicalStatus": {
+      "coding": [
+        { "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active" }
+      ]
+    },
+    "code": {
+      "coding": [
+        { "system": "http://snomed.info/sct", "code": "44054006", "display": "Diabetes" }
+      ],
+      "text": "Diabetes"
+    },
+    "onsetDateTime": "1960-09-03T19:20:06+00:00"
+  },
+  {
+    "resourceType": "Condition",
+    "id": "6f2912bc-f3e2-401b-a94a-2da0a995354f",
+    "clinicalStatus": {
+      "coding": [
+        { "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active" }
+      ]
+    },
+    "code": {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "368581000119106",
+          "display": "Neuropathy due to type 2 diabetes mellitus (disorder)"
+        }
+      ],
+      "text": "Neuropathy due to type 2 diabetes mellitus (disorder)"
+    },
+    "onsetDateTime": "1964-09-12T19:20:06+00:00"
+  },
+  {
+    "resourceType": "Condition",
+    "id": "a9efbfa6-e6c2-4399-959e-5169aabaa493",
+    "clinicalStatus": {
+      "coding": [
+        { "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active" }
+      ]
+    },
+    "code": {
+      "coding": [
+        { "system": "http://snomed.info/sct", "code": "15777000", "display": "Prediabetes" }
+      ],
+      "text": "Prediabetes"
+    },
+    "onsetDateTime": "1958-08-30T19:20:06+00:00"
+  },
+  {
+    "resourceType": "Condition",
+    "id": "3e79286b-4f21-4e9c-bdf8-846008950b67",
+    "clinicalStatus": {
+      "coding": [
+        { "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "resolved" }
+      ]
+    },
+    "code": {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "307731004",
+          "display": "Injury of tendon of the rotator cuff of shoulder"
+        }
+      ],
+      "text": "Injury of tendon of the rotator cuff of shoulder"
+    },
+    "onsetDateTime": "1963-11-30T19:20:06+00:00"
+  },
+  {
+    "resourceType": "Condition",
+    "id": "sans-codage",
+    "clinicalStatus": {
+      "coding": [
+        { "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active" }
+      ]
+    },
+    "code": { "text": "Motif consigné en texte libre, sans code" }
+  }
+]

@@ -1,0 +1,85 @@
+# Vérification à chaque poussée, publication seulement si elle est verte.
+#
+# La tâche de vérification ne reçoit AUCUN secret et ne joint AUCUN service extérieur : la
+# suite est entièrement hors ligne — transports simulés et ressources enregistrées. Ce n'est
+# pas une chance mais une propriété, et l'absence de secrets ici la rend impossible à perdre
+# par inadvertance : un test qui appellerait le bac à sable ou le documentaliste échouerait.
+
+name: Vérification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Une poussée annule la vérification de la précédente sur la même branche : publier une
+# image depuis un état déjà dépassé n'apprend rien et occupe un exécuteur.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verification:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Installer les dépendances
+        run: uv sync --extra api
+
+      - name: Fautes
+        run: uv run ruff check src/ tests/
+
+      # Séparé de la ligne précédente à dessein : les deux répondent à des questions
+      # différentes, et ne lancer que la première laisse l'écart de format grossir en
+      # silence jusqu'à devenir impossible à corriger sans noyer le travail en cours.
+      - name: Mise en forme
+        run: uv run ruff format --check src/ tests/
+
+      - name: Tests
+        run: uv run pytest
+
+      # La limite de 500 lignes est une règle du projet ; une règle qui ne se vérifie pas
+      # se contourne sans que personne ne le remarque.
+      - name: Taille des fichiers
+        run: |
+          trop=$(find src tests -name '*.py' -exec awk 'END{if (NR > 500) print FILENAME" ("NR" lignes)"}' {} \;)
+          if [ -n "$trop" ]; then echo "$trop"; exit 1; fi
+
+  publication:
+    needs: verification
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Connexion au registre
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # Le jeton fourni par GitHub suffit à publier : aucun jeton personnel à créer,
+          # à conserver, ni à révoquer.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construire et publier
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/passerelle-fhir:latest
+            ghcr.io/${{ github.repository_owner }}/passerelle-fhir:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

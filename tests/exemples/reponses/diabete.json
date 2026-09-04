@@ -1,0 +1,25 @@
+{
+  "question": "quelle est la prise en charge recommandée du diabète de type 2 ?",
+  "issue": "reponse",
+  "refus": "",
+  "affirmations": [
+    {
+      "texte": "TEXTE D'ESSAI — ce fichier ne contient aucun contenu de la Haute Autorité de Santé.",
+      "extrait": 1
+    }
+  ],
+  "passages": [
+    {
+      "numero": 1,
+      "document": "essai_0001",
+      "page": 1,
+      "texte": "TEXTE D'ESSAI. Les vraies réponses de secours se prélèvent sur le service par la commande enregistrer-reponses ; aucune n'est rédigée à la main.",
+      "titre": "Document d'essai",
+      "url": "",
+      "type_publication": "Essai",
+      "mise_en_ligne": ""
+    }
+  ],
+  "defauts": [],
+  "redaction_indisponible": false
+}

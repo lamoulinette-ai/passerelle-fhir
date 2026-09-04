@@ -1,0 +1,24 @@
+# Environnements, caches d'outils et artefacts de construction
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets — jamais commités
+.env
+.env.*
+!.env.example
+
+# Procédure de déploiement : elle nomme l'hôte, le compte de service, les ports internes
+# et l'emplacement des secrets. Rien de tout cela n'a sa place dans un dépôt public.
+deploy/
+
+# Contenu terminologique résolu au Serveur Multi-Terminologies.
+#
+# La licence d'affiliation SNOMED CT réserve l'accès à la terminologie aux utilisateurs
+# autorisés et impose un registre nominatif des sous-licenciés : un dépôt public ne peut
+# satisfaire ni l'un ni l'autre. Les identifiants circulent librement, les libellés non.
+cache_terminologie/

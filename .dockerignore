@@ -1,0 +1,27 @@
+# Ce que Docker envoie au démon AVANT de lire le Dockerfile. Les `COPY` sont ciblés, mais
+# ils n'interviennent qu'après le transfert : restreindre le contexte est le seul moyen
+# d'éviter d'y verser un environnement virtuel entier.
+
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.git/
+.github/
+
+# Le contenu terminologique résolu ne doit jamais entrer dans une image publiée : la licence
+# d'affiliation SNOMED CT en réserve l'accès aux utilisateurs autorisés.
+cache_terminologie/
+
+# Secrets — jamais dans une image, même par un COPY accidentel.
+.env
+.env.*
+!.env.example
+
+# L'appareil de vérification ne sert pas à l'exécution.
+tests/
+docs/
+deploy/

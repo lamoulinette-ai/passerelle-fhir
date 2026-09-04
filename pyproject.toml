@@ -1,0 +1,66 @@
+[project]
+name = "passerelle-fhir"
+version = "0.0.1"
+description = "Contexte patient FHIR et recherche documentée dans les publications de la HAS"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.9",
+]
+
+[project.optional-dependencies]
+# Service HTTP. Isolé pour que la lecture FHIR et la résolution terminologique
+# s'installent et se testent sans serveur web.
+api = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "slowapi>=0.1.9",
+]
+
+[project.scripts]
+sonde-conformite = "passerelle.sondes.conformite:main"
+sonde-formulations = "passerelle.sondes.formulations:main"
+enregistrer-reponses = "passerelle.documentaliste.enregistrement:main"
+
+[dependency-groups]
+# `httpx2` ne sert qu'au client de test de Starlette, qui le préfère à `httpx` et avertit
+# quand il ne le trouve pas. Le code de production, lui, reste sur `httpx`.
+dev = ["pytest>=8.0", "ruff>=0.6", "httpx2"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/passerelle"]
+
+# Les réponses de secours voyagent avec le paquet : sans elles, le mode dégradé
+# n'existerait qu'en développement.
+[tool.hatch.build.targets.wheel.force-include]
+"src/passerelle/documentaliste/exemples" = "passerelle/documentaliste/exemples"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["passerelle"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+# Tout avertissement est une erreur : une dépréciation ignorée aujourd'hui est une panne
+# à la prochaine montée de version, et elle se noie dans une sortie qu'on ne lit plus.
+#
+# Les exceptions sont nommées une à une, avec leur raison. Chacune est une dette : elle
+# doit disparaître quand la dépendance concernée est corrigée.
+filterwarnings = [
+    "error",
+    # Émis à l'import de `starlette.testclient`, dans Starlette même. Rien de notre côté
+    # ne le déclenche et rien de notre côté ne peut l'éteindre.
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]

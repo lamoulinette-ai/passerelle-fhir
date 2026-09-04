@@ -1,0 +1,43 @@
+{
+  "resourceType": "Patient",
+  "id": "ecaea95c-46de-4ac9-a58d-4847d1a3e574",
+  "meta": {
+    "tag": [{ "system": "https://smarthealthit.org/tags", "code": "synthea-5-2019" }]
+  },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/patient-mothersMaidenName",
+      "valueString": "Livia Waters"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
+      "valueCode": "M"
+    }
+  ],
+  "identifier": [
+    {
+      "type": { "text": "Social Security Number" },
+      "system": "http://hl7.org/fhir/sid/us-ssn",
+      "value": "999-78-9632"
+    },
+    {
+      "type": { "text": "Passport Number" },
+      "system": "http://standardhealthrecord.org/fhir/StructureDefinition/passportNumber",
+      "value": "X84207296X"
+    }
+  ],
+  "name": [{ "use": "official", "family": "Stanton", "given": ["Stewart"], "prefix": ["Mr."] }],
+  "telecom": [{ "system": "phone", "value": "555-164-7754", "use": "home" }],
+  "gender": "male",
+  "birthDate": "1915-07-03",
+  "deceasedDateTime": "1969-08-26T19:20:06+00:00",
+  "address": [
+    {
+      "line": ["199 Schowalter Neck"],
+      "city": "West Springfield Town",
+      "state": "Massachusetts",
+      "postalCode": "01089",
+      "country": "US"
+    }
+  ]
+}
