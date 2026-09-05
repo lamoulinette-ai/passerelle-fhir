@@ -207,6 +207,56 @@ class TestDegradation:
         assert any("FHIR" in d["cause"] for d in rendue["degradations"])
 
 
+class TestEspacement:
+    def test_deux_interrogations_sont_espacees(
+        self, client: TestClient, brancher: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Le fournisseur du modèle plafonne à une requête par seconde, par espace de travail.
+
+        Deux pathologies produiraient deux appels dans la même seconde, et le second serait
+        refusé — ce qui s'est produit en ligne avant cette pause.
+        """
+        pauses: list[float] = []
+        monkeypatch.setattr(service.time, "sleep", pauses.append)
+        brancher["fhir"] = _FauxFhir([_condition("44054006"), _condition("185086009")])
+
+        client.post("/consulter", json={"patient": DANS_LA_DEMO})
+        assert len(pauses) == 1, "une pause entre deux appels, aucune avant le premier"
+        assert pauses[0] >= 1.0
+
+    def test_une_seule_interrogation_n_attend_pas(
+        self, client: TestClient, brancher: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pauses: list[float] = []
+        monkeypatch.setattr(service.time, "sleep", pauses.append)
+        brancher["fhir"] = _FauxFhir([_condition("44054006")])
+
+        client.post("/consulter", json={"patient": DANS_LA_DEMO})
+        assert pauses == []
+
+
+class TestRedactionIndisponible:
+    def test_elle_remonte_dans_la_reponse_et_la_trace(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        """Un refus légitime et une rédaction coupée produisent la même issue.
+
+        Sans ce drapeau, la démonstration présenterait une indisponibilité du fournisseur
+        comme une décision de se taire — exactement la confusion que le moteur documentaire
+        s'emploie à éviter.
+        """
+        brancher["fhir"] = _FauxFhir([_condition("44054006")])
+        brancher["charge"] = {**REPONSE, "redaction_indisponible": True, "affirmations": []}
+
+        rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
+        requete = rendue["requetes"][0]
+        assert requete["origine"] == "enregistrée", "la réponse enregistrée prend le relais"
+        assert any("rédaction indisponible" in d["cause"] for d in rendue["degradations"])
+
+        trace = client.get(f"/journal/{rendue['trace']}").json()
+        assert trace["interrogations"][0]["origine"] == "enregistrée"
+
+
 class TestApplicationDuContexte:
     def test_un_patient_hors_demonstration_est_refuse(self, client: TestClient) -> None:
         reponse = client.post("/consulter", json={"patient": "inconnu-9999"})

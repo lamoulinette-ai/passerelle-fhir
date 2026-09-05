@@ -44,6 +44,10 @@ class RequeteRendue(BaseModel):
     defauts: list[Defaut] = Field(default_factory=list)
     #: « service » ou « enregistrée ». Ce que la page doit afficher sans le déduire.
     origine: str = "service"
+    #: Vrai quand la synthèse manque faute de rédaction en amont — budget, quota ou panne du
+    #: fournisseur. **Distinct d'un refus** : le moteur distingue les deux, et les confondre
+    #: ferait passer une indisponibilité pour une décision de se taire.
+    redaction_indisponible: bool = False
 
 
 class DegradationRendue(BaseModel):

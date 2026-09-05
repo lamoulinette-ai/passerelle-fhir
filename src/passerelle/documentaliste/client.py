@@ -79,8 +79,9 @@ class Documentaliste:
     def interroger(self, question: str, gabarit: str = "") -> tuple[Reponse | None, str]:
         """Pose une question et rend `(réponse, cause de dégradation)`.
 
-        La cause est vide quand le service a répondu. Elle est renseignée dès qu'un repli a
-        lieu, y compris quand ce repli réussit : c'est elle que le journal consigne.
+        La cause est vide quand le service a répondu **et rédigé**. Elle est renseignée dès
+        qu'un repli a lieu, y compris quand ce repli réussit : c'est elle que le journal
+        consigne.
         """
         try:
             reponse = self._client.post(f"{self.adresse}/question", json={"question": question})
@@ -93,8 +94,20 @@ class Documentaliste:
         except ValueError:
             return self._replier(gabarit, "réponse du service illisible")
 
+        # Une rédaction coupée en amont n'est pas une panne du service, mais elle prive la
+        # démonstration de sa synthèse. Le fournisseur du modèle a déjà désactivé son palier
+        # gratuit vingt-cinq heures durant : la rédaction vive ne peut pas être le chemin
+        # nominal. Une réponse enregistrée, déclarée comme telle, vaut mieux qu'un refus
+        # qui n'en est pas un.
         if rendue.redaction_indisponible:
-            journal.info("rédaction indisponible en amont — passages conservés")
+            secours, cause = self._replier(gabarit, "rédaction indisponible en amont")
+            if secours is not None:
+                return secours, cause
+            # Faute d'enregistrement, on rend la réponse amputée plutôt que rien : les
+            # passages retrouvés sont là, et l'appelant saura par la cause qu'il manque
+            # la synthèse.
+            return rendue, "rédaction indisponible en amont, aucune réponse enregistrée"
+
         return rendue, ""
 
     def _replier(self, gabarit: str, cause: str) -> tuple[Reponse | None, str]:

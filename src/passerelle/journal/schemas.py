@@ -95,6 +95,9 @@ class Interrogation(BaseModel):
     issue: str = ""
     #: « service » ou « enregistrée ».
     origine: str = "service"
+    #: La synthèse manquait-elle faute de rédaction en amont ? Un refus légitime et une
+    #: rédaction coupée produisent la même issue ; seul ce drapeau les sépare.
+    redaction_indisponible: bool = False
     passages: list[PassageCite] = Field(default_factory=list)
     #: Motifs des contrôles mécaniques du moteur — citation hors périmètre, quantité absente.
     defauts: list[str] = Field(default_factory=list)

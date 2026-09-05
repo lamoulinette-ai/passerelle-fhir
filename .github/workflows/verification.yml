@@ -89,3 +89,34 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/passerelle-fhir:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploiement:
+    needs: publication
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Aucune permission sur le dépôt : cette tâche ne lit ni n'écrit rien ici, elle ouvre
+    # une connexion et exécute une commande forcée sur l'hôte.
+    permissions: {}
+    steps:
+      - name: Préparer la clé et l'hôte connu
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_CLE }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Sans l'empreinte connue, la connexion accepterait n'importe quel serveur se
+          # présentant à cette adresse. `StrictHostKeyChecking` seul ne suffit pas : il faut
+          # que l'empreinte attendue soit là avant la première connexion.
+          printf '%s\n' "${{ secrets.VPS_HOTE_CONNU }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Déployer
+        # Aucune commande n'est transmise : `authorized_keys` en impose une, et le script
+        # ignore ce que l'appelant pourrait vouloir exécuter. La ligne ci-dessous n'ouvre
+        # donc pas un shell, elle déclenche `deployer.sh`.
+        run: |
+          ssh -o StrictHostKeyChecking=yes -o BatchMode=yes \
+              "${{ secrets.VPS_UTILISATEUR }}@${{ secrets.VPS_HOTE }}"
+
+      - name: Effacer la clé
+        if: always()
+        run: shred -u ~/.ssh/id_ed25519 2>/dev/null || rm -f ~/.ssh/id_ed25519

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 
 from passerelle.api.patients import PAR_IDENTIFIANT
 from passerelle.api.schemas import (
@@ -36,6 +37,10 @@ journal = logging.getLogger("passerelle.api")
 
 TERMINOLOGIE_ABSENTE = "clé du Serveur Multi-Terminologies absente"
 TERMINOLOGIE_CONSEQUENCE = "codes SNOMED affichés bruts, sans libellé français"
+
+#: Secondes entre deux interrogations documentaires. Le fournisseur du modèle plafonne à une
+#: requête par seconde et par espace de travail ; la marge couvre l'imprécision d'horloge.
+ESPACEMENT = 1.2
 
 
 class PatientRefuse(PermissionError):
@@ -133,7 +138,12 @@ def _interroger(contexte: ContextePatient, tenue: Tenue) -> list[RequeteRendue]:
 
     moteur, rendues = Documentaliste(), []
     try:
-        for requete in requetes:
+        for rang, requete in enumerate(requetes):
+            # Le fournisseur du modèle plafonne à une requête par seconde, **par espace de
+            # travail** : deux pathologies produiraient deux appels dans la même seconde, et
+            # le second serait refusé. La pause précède l'appel, jamais le premier.
+            if rang:
+                time.sleep(ESPACEMENT)
             interrogation = tenue.interroger(requete.gabarit, requete.texte, requete.codes)
             tenue.lecture(
                 "POST /question", "documentaliste", Frontiere.SERVICE, "appel serveur à serveur"
@@ -158,6 +168,7 @@ def _interroger(contexte: ContextePatient, tenue: Tenue) -> list[RequeteRendue]:
                 reponse.issue,
                 reponse.origine,
                 [defaut.motif for defaut in reponse.defauts],
+                reponse.redaction_indisponible,
             )
             for passage in reponse.passages:
                 tenue.passage(
@@ -174,6 +185,7 @@ def _interroger(contexte: ContextePatient, tenue: Tenue) -> list[RequeteRendue]:
                     passages=reponse.passages,
                     defauts=reponse.defauts,
                     origine=reponse.origine,
+                    redaction_indisponible=reponse.redaction_indisponible,
                 )
             )
     finally:

@@ -104,11 +104,13 @@ class Tenue:
         issue: str,
         origine: str = "service",
         defauts: list[str] | None = None,
+        redaction_indisponible: bool = False,
     ) -> None:
         """Referme une interrogation sur ce que le moteur en a fait."""
         interrogation.issue = issue
         interrogation.origine = origine
         interrogation.defauts = defauts or []
+        interrogation.redaction_indisponible = redaction_indisponible
 
     def passage(
         self,

@@ -76,13 +76,30 @@ class TestAppel:
         assert cause == ""
         assert reponse is not None and reponse.issue == "refus"
 
-    def test_une_redaction_coupee_n_est_pas_une_panne(self) -> None:
-        """Plafond atteint en amont : les passages sont là, seule la synthèse manque."""
+    def test_une_redaction_coupee_sert_la_reponse_enregistree(self) -> None:
+        """Le fournisseur du modèle a déjà coupé son palier gratuit vingt-cinq heures durant.
+
+        La rédaction vive ne peut donc pas être le chemin nominal d'une démonstration
+        publique : une réponse enregistrée, déclarée comme telle, vaut mieux qu'un refus
+        qui n'en est pas un.
+        """
         coupee = {**VIVE, "redaction_indisponible": True, "affirmations": []}
         reponse, cause = _moteur(_repond(coupee)).interroger("une question", "diabete")
+        assert reponse is not None and reponse.enregistree
+        assert "rédaction indisponible" in cause
+
+    def test_sans_enregistrement_la_reponse_amputee_est_rendue(self) -> None:
+        """Les passages retrouvés valent mieux que rien, et la cause dit ce qui manque."""
+        coupee = {**VIVE, "redaction_indisponible": True, "affirmations": []}
+        reponse, cause = _moteur(_repond(coupee)).interroger("une question", "bpco")
+        assert reponse is not None and not reponse.enregistree
+        assert reponse.redaction_indisponible and reponse.passages
+        assert "aucune réponse enregistrée" in cause
+
+    def test_une_reponse_redigee_ne_declenche_rien(self) -> None:
+        reponse, cause = _moteur(_repond(VIVE)).interroger("une question", "diabete")
         assert cause == ""
-        assert reponse is not None and reponse.redaction_indisponible
-        assert reponse.passages
+        assert reponse is not None and not reponse.redaction_indisponible
 
 
 class TestRepli:

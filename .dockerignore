@@ -25,3 +25,6 @@ cache_terminologie/
 tests/
 docs/
 deploy/
+
+# Outillage de déploiement : il s'exécute sur l'hôte, jamais dans le conteneur.
+deployer.sh
