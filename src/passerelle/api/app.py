@@ -43,11 +43,11 @@ from passerelle.api.serveurs import PAR_IDENTIFIANT as SERVEURS_PAR_ID
 from passerelle.api.service import (
     ConditionInconnue,
     PatientRefuse,
-    cle_smt,
     consulter,
     interroger_condition,
     serveurs_joignables,
     terminologie_repond,
+    terminologie_vue,
 )
 from passerelle.api.sessions import Sessions
 from passerelle.documentaliste.client import api as documentaliste_api
@@ -150,9 +150,6 @@ def _limites() -> list[str]:
 registre = Registre()
 sessions = Sessions()
 
-#: Ce que le démarrage a constaté. Vide tant que le service n'a pas démarré.
-etat: dict[str, str] = {"terminologie": ""}
-
 #: Serveurs dont la configuration SMART a répondu au démarrage, par identifiant. Vide tant
 #: que le service n'a pas démarré, ce qui rend tout injoignable — et donc la démonstration
 #: dégradée. C'est le bon sens du défaut : ne proposer une connexion qu'après l'avoir éprouvée.
@@ -177,13 +174,13 @@ async def cycle(_app: FastAPI) -> AsyncIterator[None]:
     journal.info("serveur FHIR : %s", fhir_base())
     journal.info("moteur documentaire : %s", documentaliste_api())
     journal.info("témoin de session Secure : %s", _temoin_sur())
-    # Éprouvé une fois, pas déduit d'une clé : `$lookup` répond sans authentification.
-    etat["terminologie"] = terminologie_repond()
-    if etat["terminologie"]:
-        journal.info("terminologie disponible — concept témoin : « %s »", etat["terminologie"])
+    # Première observation. Chaque consultation la révisera ensuite : un drapeau mesuré une
+    # seule fois resterait faux longtemps après le retour du service.
+    temoin = terminologie_repond()
+    if temoin:
+        journal.info("terminologie disponible — concept témoin : « %s »", temoin)
     else:
         journal.warning("terminologie injoignable — les codes seront affichés bruts")
-    journal.info("clé SMT configurée : %s", bool(cle_smt()))
     joignables.update(serveurs_joignables())
     if _degradee():
         journal.warning(
@@ -208,12 +205,18 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> Etat:
-    """Le processus répond, et l'état de ses deux dépendances."""
-    disponible = bool(etat["terminologie"])
+    """Le processus répond, et l'état de ses deux dépendances.
+
+    L'état de la terminologie est celui de la **dernière résolution réelle**, pas celui du
+    démarrage : c'est le chemin vif qui le révise, sans requête supplémentaire.
+    """
+    temoin, vue = terminologie_vue()
+    disponible = bool(temoin)
     return Etat(
         debout=True,
         complet=disponible,
-        terminologie="disponible" if disponible else "injoignable au démarrage",
+        terminologie="disponible" if disponible else "injoignable",
+        terminologie_vue=vue,
         moteur_documentaire=documentaliste_api(),
         serveur_fhir=fhir_base(),
         traces=len(registre),

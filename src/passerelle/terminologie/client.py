@@ -1,12 +1,18 @@
 """Résolution terminologique contre le Serveur Multi-Terminologies de l'ANS.
 
-`$lookup` répond **sans authentification** — mesuré. La clé d'API ne protège que le
-téléchargement des référentiels entiers. Elle reste configurable et sa présence est
-journalisée, mais son absence ne dégrade rien.
+`$lookup` répond **sans authentification** — mesuré depuis deux machines et deux réseaux. Le
+client n'envoie donc aucune identification.
 
-Ce que la clé garantit, en revanche, ne se lit pas dans une réponse HTTP : l'affiliation au
-centre national français est ce qui rend l'usage licite, et les mentions de licence du README
-en découlent.
+**Quand une clé deviendrait nécessaire**, et ce qu'il faudrait alors écrire : le SMT protège
+le téléchargement des référentiels entiers, et fermerait `$lookup` s'il changeait de
+politique. La clé d'API du SMT **n'est pas un jeton porteur** : elle s'échange contre un JWT,
+et c'est ce JWT qui va dans `Authorization: Bearer`. L'envoyer telle quelle rend 401 — mesuré
+en production, sur un chemin qui n'avait jamais été exécuté nulle part. Implémenter l'échange,
+sa péremption et son renouvellement est le travail à faire ce jour-là, pas avant.
+
+Ce que la clé atteste, en revanche, ne se lit dans aucune réponse HTTP : l'affiliation au
+centre national français est ce qui rend l'usage licite, avec ou sans elle, et les mentions de
+licence du README en découlent.
 """
 
 from __future__ import annotations
@@ -39,11 +45,6 @@ class TerminologieIndisponible(RuntimeError):
 def base() -> str:
     """Base du serveur de terminologies, lue dans l'environnement."""
     return os.environ.get("PASSERELLE_SMT_BASE", "").strip() or BASE_DEFAUT
-
-
-def cle() -> str:
-    """Clé d'API, facultative pour `$lookup`."""
-    return os.environ.get("PASSERELLE_SMT_CLE", "").strip()
 
 
 #: Usages qui désignent le terme retenu pour une langue, par opposition aux synonymes.
@@ -103,8 +104,6 @@ class Terminologie:
     def __init__(self, adresse: str | None = None, client: httpx.Client | None = None) -> None:
         self.adresse = (adresse or base()).rstrip("/")
         entetes = {"Accept": "application/fhir+json"}
-        if cle():
-            entetes["Authorization"] = f"Bearer {cle()}"
         self._client = client or httpx.Client(timeout=10.0, headers=entetes)
         self._cache: OrderedDict[tuple[str, str], Concept] = OrderedDict()
 

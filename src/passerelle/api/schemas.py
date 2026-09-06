@@ -152,9 +152,13 @@ class Etat(BaseModel):
 
     #: Le processus répond. Vrai dès que la route est atteinte.
     debout: bool = True
-    #: Aucune dégradation connue au démarrage.
+    #: Aucune dégradation connue.
     complet: bool = True
     terminologie: str = "indisponible"
+    #: Instant de la dernière observation, en ISO 8601. Un « disponible » vu il y a trois
+    #: jours et un vu il y a dix secondes ne disent pas la même chose ; l'horodatage laisse
+    #: le lecteur faire la différence au lieu de la lui cacher.
+    terminologie_vue: str = ""
     moteur_documentaire: str = "inconnu"
     serveur_fhir: str = ""
     traces: int = 0

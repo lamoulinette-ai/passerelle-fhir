@@ -98,9 +98,12 @@ sont dérivés de [Synthea](https://synthetichealth.github.io/synthea/).
 ## Terminologie et licence
 
 La résolution des codes s'appuie sur le [Serveur Multi-Terminologies](https://smt.esante.gouv.fr/)
-de l'Agence du Numérique en Santé, qui expose un service FHIR de terminologie. Elle suppose
-une **clé d'API personnelle** et une **affiliation SNOMED CT** au centre national français —
-l'une et l'autre gratuites.
+de l'Agence du Numérique en Santé, qui expose un service FHIR de terminologie. `$lookup` y
+répond **sans authentification** — mesuré depuis deux machines et deux réseaux — et la
+passerelle n'envoie donc aucune identification.
+
+Une **affiliation SNOMED CT** au centre national français reste requise, et gratuite : c'est
+elle qui rend l'usage licite, indépendamment de toute clé technique.
 
 **Ce dépôt ne redistribue aucun contenu SNOMED CT.** La licence d'affiliation réserve l'accès
 à la terminologie aux utilisateurs autorisés et impose un registre nominatif des

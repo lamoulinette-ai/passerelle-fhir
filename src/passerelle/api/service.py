@@ -17,9 +17,9 @@ plutôt que d'afficher un blanc.
 from __future__ import annotations
 
 import logging
-import os
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 
 import httpx
 
@@ -59,31 +59,50 @@ class PatientRefuse(PermissionError):
     """La passerelle refuse de lire ce patient."""
 
 
-def cle_smt() -> str:
-    """Clé d'API du Serveur Multi-Terminologies, lue dans l'environnement.
+#: Ce que la **dernière résolution réelle** a montré, et quand.
+#:
+#: Le démarrage y écrit sa sonde, puis chaque consultation la révise. Un drapeau mesuré une
+#: seule fois ment par immobilité : une indisponibilité de trente secondes au démarrage le
+#: figeait à « injoignable » pendant des jours, alors que le service résolvait correctement à
+#: chaque requête — constaté en production.
+#:
+#: Révisé par le chemin vif plutôt que par une nouvelle sonde : la résolution a déjà lieu,
+#: elle dit la vérité sur le service tel qu'il est employé, et elle n'ajoute aucune requête.
+#: Sonder à chaque appel de `/health` en ferait deux par minute pour un drapeau.
+_TERMINOLOGIE: dict[str, str] = {"temoin": "", "vue": ""}
 
-    Facultative pour `$lookup` : elle ne protège que le téléchargement des référentiels
-    entiers. Ce qu'elle atteste — l'affiliation au centre national — ne se lit pas dans une
-    réponse HTTP.
+
+def _noter_terminologie(temoin: str) -> None:
+    """Retient ce que la terminologie vient de montrer, et l'instant de l'observation."""
+    _TERMINOLOGIE["temoin"] = temoin
+    _TERMINOLOGIE["vue"] = datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def terminologie_vue() -> tuple[str, str]:
+    """Rend `(témoin, horodatage)` de la dernière observation. Vides avant la première.
+
+    L'horodatage est rendu pour que `/health` ne se contente pas d'affirmer : un « disponible »
+    observé il y a trois jours et un observé il y a dix secondes ne disent pas la même chose,
+    et le lecteur doit pouvoir faire la différence lui-même.
     """
-    return os.environ.get("PASSERELLE_SMT_CLE", "").strip()
+    return _TERMINOLOGIE["temoin"], _TERMINOLOGIE["vue"]
 
 
 def terminologie_repond() -> str:
-    """Éprouve le serveur de terminologies sur un concept témoin.
+    """Éprouve le serveur de terminologies sur un concept témoin, au démarrage.
 
-    Rend le libellé obtenu, ou une chaîne vide. Appelé **une fois au démarrage** : déduire la
-    disponibilité de la présence d'une clé serait faux — `$lookup` répond sans elle — et
-    sonder à chaque appel de `/health` ferait deux requêtes par minute pour rien.
+    Rend le libellé obtenu, ou une chaîne vide, et le note comme première observation.
     """
     terminologie = Terminologie()
     try:
-        return terminologie.resoudre(*CONCEPT_TEMOIN).libelle_fr or ""
+        temoin = terminologie.resoudre(*CONCEPT_TEMOIN).libelle_fr or ""
     except TerminologieIndisponible as erreur:
         journal.warning("terminologie injoignable au démarrage : %s", erreur)
-        return ""
+        temoin = ""
     finally:
         terminologie.fermer()
+    _noter_terminologie(temoin)
+    return temoin
 
 
 #: Délai de la sonde de démarrage, en secondes. Plus court que celui d'une lecture réelle.
@@ -170,7 +189,7 @@ def _resoudre(contexte: ContextePatient, tenue: Tenue) -> list[ProblemeRendu]:
     Une seule dégradation est consignée si le serveur de terminologies ne répond pas : les
     codes restent bruts, et chaque problème est rendu tel qu'il a été lu.
     """
-    terminologie, panne = Terminologie(), ""
+    terminologie, panne, temoin = Terminologie(), "", ""
     rendus: list[ProblemeRendu] = []
     try:
         for probleme in contexte.problemes:
@@ -179,6 +198,7 @@ def _resoudre(contexte: ContextePatient, tenue: Tenue) -> list[ProblemeRendu]:
             if not panne:
                 try:
                     concept = terminologie.resoudre(code.systeme, code.code)
+                    temoin = temoin or concept.libelle_fr or concept.display or code.code
                 except TerminologieIndisponible as erreur:
                     panne = f"serveur de terminologies injoignable ({erreur})"
                     journal.warning("%s", panne)
@@ -209,6 +229,11 @@ def _resoudre(contexte: ContextePatient, tenue: Tenue) -> list[ProblemeRendu]:
 
     if panne and contexte.problemes:
         tenue.degradation(panne, TERMINOLOGIE_CONSEQUENCE)
+
+    # Un dossier sans problème codé n'apprend rien sur la terminologie : rien n'a été demandé,
+    # et noter « injoignable » sur ce silence effacerait une observation valide.
+    if contexte.problemes:
+        _noter_terminologie("" if panne else temoin)
     return rendus
 
 
