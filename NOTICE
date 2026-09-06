@@ -1,0 +1,61 @@
+Passerelle FHIR
+Copyright 2026 La Moulinette AI
+
+Ce logiciel est distribué sous licence Apache 2.0 — voir le fichier LICENSE.
+
+
+-------------------------------------------------------------------------------
+SNOMED Clinical Terms® (SNOMED CT®)
+-------------------------------------------------------------------------------
+
+Ce matériel comprend la version nationale française de la SNOMED Clinical Terms®
+(SNOMED CT®) qui est utilisée avec l'autorisation de l'Agence du Numérique en
+Santé. Tous droits réservés.
+
+Ce matériel comprend la SNOMED Clinical Terms® (SNOMED CT®) qui est utilisée avec
+l'autorisation de l'International Health Terminology Standards Development
+Organisation (IHTSDO). Tous droits réservés. SNOMED CT® a été à l'origine créée
+par le College of American Pathologists. « SNOMED » et « SNOMED CT » sont des
+marques déposées de l'IHTSDO.
+
+Édition nationale française — Juin 2026 v1.0, publiée le 21 juin 2026 (version
+20260621, module 11000315107), telle que rendue par le Serveur Multi-Terminologies
+à la date de la dernière mesure (voir docs/terminologie_releve.md).
+
+Les traductions françaises résultent des travaux du French Translation
+Collaboration Group piloté par SNOMED International. L'Agence du Numérique en
+Santé ne garantit pas leur exactitude et n'assume aucune responsabilité en cas
+d'erreurs.
+
+Ce dépôt ne redistribue aucun contenu SNOMED CT. Il porte des identifiants de
+concepts, jamais leurs libellés : ceux-ci sont résolus à l'exécution, contre le
+Serveur Multi-Terminologies, avec les identifiants propres de l'utilisateur.
+
+L'exécution requiert donc une affiliation personnelle au centre national français
+de référence et une clé d'accès au Serveur Multi-Terminologies. L'une et l'autre
+sont gratuites en France.
+
+
+-------------------------------------------------------------------------------
+Haute Autorité de Santé
+-------------------------------------------------------------------------------
+
+Les extraits de publications de la Haute Autorité de Santé présents dans ce dépôt
+— réponses enregistrées servant le mode dégradé, relevés de sondes sous docs/ —
+sont diffusés sous Licence Ouverte 2.0.
+
+    https://www.etalab.gouv.fr/licence-ouverte-open-licence/
+
+Attribution : Haute Autorité de Santé.
+
+
+-------------------------------------------------------------------------------
+Synthea
+-------------------------------------------------------------------------------
+
+Les dossiers patients employés par la démonstration sont synthétiques, dérivés de
+Synthea (The MITRE Corporation, licence Apache 2.0).
+
+    https://synthetichealth.github.io/synthea/
+
+Aucune donnée de santé réelle n'est traitée par ce logiciel, y compris anonymisée.

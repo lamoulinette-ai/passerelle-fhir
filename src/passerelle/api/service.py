@@ -1,19 +1,27 @@
 """L'orchestration d'une consultation, et le tissage du journal.
 
+Deux gestes, et non un seul : **lire un dossier** et **interroger le corpus** sur une de ses
+conditions. La passerelle ne décide plus de ce qui mérite d'être demandé — elle rend ce
+qu'elle a lu, et l'utilisateur désigne. Les deux gestes s'inscrivent dans la **même trace**,
+sans quoi le lien entre la lecture et la question qu'elle a permise serait perdu.
+
 L'ordre des étapes porte une décision : **la lecture du dossier a lieu avant toute
 considération de dégradation**. Un plafond atteint ou une clé absente ne doit jamais priver
 d'un contexte qui a été lu — c'est la règle héritée du documentaliste, où la recherche
 précède le contrôle de budget.
 
-La résolution terminologique n'est pas encore branchée : elle consigne sa dégradation et
-laisse les codes bruts. La trace le dit, plutôt que d'afficher un blanc.
+Quand le serveur de terminologies ne répond pas, les codes restent bruts et la trace le dit,
+plutôt que d'afficher un blanc.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import time
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
+
+import httpx
 
 from passerelle.api.patients import PAR_IDENTIFIANT
 from passerelle.api.schemas import (
@@ -23,24 +31,28 @@ from passerelle.api.schemas import (
     ProblemeRendu,
     RequeteRendue,
 )
+from passerelle.api.serveurs import SERVEURS, ServeurFhir
 from passerelle.documentaliste.client import Documentaliste
+from passerelle.documentaliste.schemas import Reponse
 from passerelle.fhir.client import ClientFhir, FhirIndisponible
 from passerelle.fhir.contexte import contexte as assembler
 from passerelle.fhir.schemas import ContextePatient
-from passerelle.journal.schemas import Frontiere, Mode, Trace
+from passerelle.journal.schemas import Frontiere, Mode, ProblemeObserve, Trace
 from passerelle.journal.tenue import Tenue
-from passerelle.requete.gabarits import construire
+from passerelle.requete.gabarits import FORME_DEFAUT, question_libre
+from passerelle.requete.gabarits import texte as texte_gabarit
 from passerelle.requete.perimetre import pathologie
+from passerelle.smart.decouverte import DecouverteImpossible, decouvrir
 from passerelle.smart.schemas import Jeton
+from passerelle.terminologie.client import Terminologie, TerminologieIndisponible
 
 journal = logging.getLogger("passerelle.api")
 
-TERMINOLOGIE_ABSENTE = "clé du Serveur Multi-Terminologies absente"
 TERMINOLOGIE_CONSEQUENCE = "codes SNOMED affichés bruts, sans libellé français"
 
-#: Secondes entre deux interrogations documentaires. Le fournisseur du modèle plafonne à une
-#: requête par seconde et par espace de travail ; la marge couvre l'imprécision d'horloge.
-ESPACEMENT = 1.2
+#: Concept servant à éprouver le serveur de terminologies au démarrage. Le diabète de type 2
+#: est dans le périmètre, traduit, et stable depuis 2002.
+CONCEPT_TEMOIN = ("http://snomed.info/sct", "44054006")
 
 
 class PatientRefuse(PermissionError):
@@ -48,8 +60,65 @@ class PatientRefuse(PermissionError):
 
 
 def cle_smt() -> str:
-    """Clé d'API du Serveur Multi-Terminologies, lue dans l'environnement."""
+    """Clé d'API du Serveur Multi-Terminologies, lue dans l'environnement.
+
+    Facultative pour `$lookup` : elle ne protège que le téléchargement des référentiels
+    entiers. Ce qu'elle atteste — l'affiliation au centre national — ne se lit pas dans une
+    réponse HTTP.
+    """
     return os.environ.get("PASSERELLE_SMT_CLE", "").strip()
+
+
+def terminologie_repond() -> str:
+    """Éprouve le serveur de terminologies sur un concept témoin.
+
+    Rend le libellé obtenu, ou une chaîne vide. Appelé **une fois au démarrage** : déduire la
+    disponibilité de la présence d'une clé serait faux — `$lookup` répond sans elle — et
+    sonder à chaque appel de `/health` ferait deux requêtes par minute pour rien.
+    """
+    terminologie = Terminologie()
+    try:
+        return terminologie.resoudre(*CONCEPT_TEMOIN).libelle_fr or ""
+    except TerminologieIndisponible as erreur:
+        journal.warning("terminologie injoignable au démarrage : %s", erreur)
+        return ""
+    finally:
+        terminologie.fermer()
+
+
+#: Délai de la sonde de démarrage, en secondes. Plus court que celui d'une lecture réelle.
+#:
+#: `/health` ne répond pas tant que le démarrage n'est pas fini, et le script de déploiement
+#: revient à l'image précédente au bout de trente secondes. Trois bacs à sable publics lents
+#: suffiraient à faire échouer un déploiement sain. Cinq secondes suffisent d'ailleurs à la
+#: question posée : un serveur qui met plus longtemps à publier sa configuration n'est pas
+#: utilisable pour une démonstration.
+DELAI_SONDE = 5.0
+
+
+def serveurs_joignables() -> dict[str, bool]:
+    """Éprouve la configuration SMART de chaque serveur déclaré, en parallèle.
+
+    Appelé **une fois au démarrage**. La page a besoin de savoir si une connexion est
+    possible avant d'en proposer une : présenter trois boutons dont aucun n'aboutit fait
+    porter à l'utilisateur le diagnostic d'une panne que le service connaissait déjà.
+
+    Un serveur qui ne publie pas sa configuration est déclaré injoignable. C'est plus sévère
+    que « ne répond pas » — un serveur debout mais sans point d'entrée d'autorisation ne
+    permet pas davantage de se connecter.
+    """
+
+    def eprouver(serveur: ServeurFhir) -> tuple[str, bool]:
+        try:
+            with httpx.Client(timeout=DELAI_SONDE) as client:
+                decouvrir(serveur.base, client)
+        except DecouverteImpossible as erreur:
+            journal.warning("%s injoignable : %s", serveur.identifiant, erreur)
+            return serveur.identifiant, False
+        return serveur.identifiant, True
+
+    with ThreadPoolExecutor(max_workers=len(SERVEURS)) as pool:
+        return dict(pool.map(eprouver, SERVEURS))
 
 
 def _autoriser(demande: Consultation, jeton: Jeton | None, tenue: Tenue) -> None:
@@ -74,13 +143,15 @@ def _autoriser(demande: Consultation, jeton: Jeton | None, tenue: Tenue) -> None
         raise PatientRefuse("patient hors démonstration")
 
 
-def _lire(demande: Consultation, jeton: Jeton | None, tenue: Tenue) -> ContextePatient:
+def _lire(
+    demande: Consultation, jeton: Jeton | None, tenue: Tenue, base: str = ""
+) -> ContextePatient:
     """Lit le dossier et consigne les deux accès avec leur frontière de confiance."""
     entetes = jeton.entete if (demande.mode is Mode.SMART and jeton) else None
     frontiere = Frontiere.DELEGUEE if entetes else Frontiere.AUCUNE
     autorisation = jeton.scope if (entetes and jeton) else ""
 
-    client = ClientFhir()
+    client = ClientFhir(adresse=base or None)
     try:
         patient = client.patient(demande.patient)
         tenue.lecture(f"Patient/{demande.patient}", "serveur FHIR", frontiere, autorisation)
@@ -94,107 +165,180 @@ def _lire(demande: Consultation, jeton: Jeton | None, tenue: Tenue) -> ContexteP
 
 
 def _resoudre(contexte: ContextePatient, tenue: Tenue) -> list[ProblemeRendu]:
-    """Rend les problèmes lus, résolus quand c'est possible.
+    """Résout les codes en français et rattache ceux dont un parent est au périmètre.
 
-    Sans clé du SMT, aucun libellé français n'est obtenu. La dégradation est consignée une
-    fois, et chaque code non résolu l'est aussi : le taux de résolution reste calculable.
+    Une seule dégradation est consignée si le serveur de terminologies ne répond pas : les
+    codes restent bruts, et chaque problème est rendu tel qu'il a été lu.
     """
-    disponible = bool(cle_smt())
-    if not disponible and contexte.problemes:
-        tenue.degradation(TERMINOLOGIE_ABSENTE, TERMINOLOGIE_CONSEQUENCE)
-
+    terminologie, panne = Terminologie(), ""
     rendus: list[ProblemeRendu] = []
-    for probleme in contexte.problemes:
-        code = probleme.code
-        dans_le_perimetre = pathologie(code.systeme, code.code) is not None
-        tenue.probleme(
-            systeme=code.systeme,
-            code=code.code,
-            libelle_source=code.libelle_source,
-            libelle_fr=code.libelle_fr,
-            terminologie="SNOMED CT",
-            statut=probleme.statut,
-            dans_le_perimetre=dans_le_perimetre,
-        )
-        rendus.append(
-            ProblemeRendu(
+    try:
+        for probleme in contexte.problemes:
+            code = probleme.code
+            concept = None
+            if not panne:
+                try:
+                    concept = terminologie.resoudre(code.systeme, code.code)
+                except TerminologieIndisponible as erreur:
+                    panne = f"serveur de terminologies injoignable ({erreur})"
+                    journal.warning("%s", panne)
+
+            trouvee = pathologie(code.systeme, code.code)
+            tenue.probleme(
                 systeme=code.systeme,
                 code=code.code,
                 libelle_source=code.libelle_source,
-                libelle_fr=code.libelle_fr,
+                libelle_fr=concept.libelle_fr if concept else None,
+                terminologie=concept.terminologie if concept else "",
+                version=concept.version if concept else "",
                 statut=probleme.statut,
-                dans_le_perimetre=dans_le_perimetre,
+                dans_le_perimetre=trouvee is not None,
             )
-        )
-    return rendus
-
-
-def _interroger(contexte: ContextePatient, tenue: Tenue) -> list[RequeteRendue]:
-    """Construit les questions et interroge le moteur documentaire pour chacune."""
-    requetes = construire(contexte)
-    if not requetes:
-        journal.info("aucune pathologie du périmètre — aucune requête construite")
-        return []
-
-    moteur, rendues = Documentaliste(), []
-    try:
-        for rang, requete in enumerate(requetes):
-            # Le fournisseur du modèle plafonne à une requête par seconde, **par espace de
-            # travail** : deux pathologies produiraient deux appels dans la même seconde, et
-            # le second serait refusé. La pause précède l'appel, jamais le premier.
-            if rang:
-                time.sleep(ESPACEMENT)
-            interrogation = tenue.interroger(requete.gabarit, requete.texte, requete.codes)
-            tenue.lecture(
-                "POST /question", "documentaliste", Frontiere.SERVICE, "appel serveur à serveur"
-            )
-            reponse, cause = moteur.interroger(requete.texte, requete.gabarit)
-            if cause:
-                tenue.degradation(cause, "réponse enregistrée servie à la place")
-            if reponse is None:
-                tenue.repondue(interrogation, "indisponible")
-                rendues.append(
-                    RequeteRendue(
-                        gabarit=requete.gabarit,
-                        texte=requete.texte,
-                        codes=requete.codes,
-                        issue="indisponible",
-                        refus=cause,
-                    )
-                )
-                continue
-            tenue.repondue(
-                interrogation,
-                reponse.issue,
-                reponse.origine,
-                [defaut.motif for defaut in reponse.defauts],
-                reponse.redaction_indisponible,
-            )
-            for passage in reponse.passages:
-                tenue.passage(
-                    interrogation, passage.numero, passage.document, passage.page, passage.titre
-                )
-            rendues.append(
-                RequeteRendue(
-                    gabarit=requete.gabarit,
-                    texte=requete.texte,
-                    codes=requete.codes,
-                    issue=reponse.issue,
-                    refus=reponse.refus,
-                    affirmations=reponse.affirmations,
-                    passages=reponse.passages,
-                    defauts=reponse.defauts,
-                    origine=reponse.origine,
-                    redaction_indisponible=reponse.redaction_indisponible,
+            rendus.append(
+                ProblemeRendu(
+                    systeme=code.systeme,
+                    code=code.code,
+                    libelle_source=code.libelle_source,
+                    libelle_fr=concept.libelle_fr if concept else None,
+                    statut=probleme.statut,
+                    dans_le_perimetre=trouvee is not None,
                 )
             )
     finally:
+        terminologie.fermer()
+
+    if panne and contexte.problemes:
+        tenue.degradation(panne, TERMINOLOGIE_CONSEQUENCE)
+    return rendus
+
+
+class ConditionInconnue(LookupError):
+    """Le code demandé ne figure pas parmi les problèmes lus dans ce dossier."""
+
+
+#: Réponses déjà obtenues, indexées par le texte de la question.
+#:
+#: Le corpus ne change pas entre deux visiteurs : « que publie la Haute Autorité de Santé
+#: sur : diabète de type 2 ? » a la même réponse pour tout le monde. Sans ce cache, une
+#: démonstration publique épuiserait en trois minutes les vingt questions par heure que le
+#: moteur documentaire accorde par adresse — et la passerelle l'appelle depuis une seule.
+CACHE: OrderedDict[str, Reponse] = OrderedDict()
+
+#: Questions gardées en mémoire. Une réponse pèse ses dix passages.
+MEMOIRE_CACHE = 256
+
+
+def _cachee(question: str) -> Reponse | None:
+    """Rend la réponse déjà obtenue pour cette question, ou `None`."""
+    if question not in CACHE:
+        return None
+    CACHE.move_to_end(question)
+    return CACHE[question]
+
+
+def _cacher(question: str, reponse: Reponse) -> None:
+    """Retient une réponse obtenue du service, jamais une réponse dégradée.
+
+    Servir plus tard un repli qui n'était dû qu'à une panne passagère du fournisseur figerait
+    l'indisponibilité bien après sa fin — et la démonstration continuerait de montrer une
+    réponse enregistrée alors que le moteur est revenu.
+    """
+    if reponse.redaction_indisponible or reponse.origine != "service":
+        return
+    CACHE[question] = reponse
+    while len(CACHE) > MEMOIRE_CACHE:
+        CACHE.popitem(last=False)
+
+
+def question_pour(probleme: ProblemeObserve) -> tuple[str, str, str]:
+    """Rend `(gabarit, texte, libellé)` pour une condition désignée par l'utilisateur.
+
+    Les codes du périmètre gardent la formulation **mesurée** et leur réponse enregistrée en
+    repli ; les autres partent sur la forme libre, qui n'a besoin d'aucun article. Le
+    périmètre ne filtre plus rien : il distingue les questions préparées des autres.
+    """
+    libelle = probleme.libelle_fr or probleme.libelle_source or probleme.code
+    patho = pathologie(probleme.systeme, probleme.code)
+    if patho is not None:
+        return patho.identifiant, texte_gabarit(patho, FORME_DEFAUT), patho.libelle
+    return "", question_libre(libelle), libelle
+
+
+def interroger_condition(trace: Trace, code: str) -> RequeteRendue:
+    """Pose au corpus la question d'une condition **désignée par l'utilisateur**.
+
+    Le code doit figurer parmi les problèmes de cette trace. Accepter un code quelconque
+    ferait de la passerelle un moteur de recherche libre sur le corpus, et la question ne
+    viendrait plus d'un dossier lu — ce qui est tout ce que la traçabilité raconte.
+    """
+    probleme = next((p for p in trace.problemes if p.code == code), None)
+    if probleme is None:
+        raise ConditionInconnue(f"condition absente du dossier : {code}")
+
+    tenue = Tenue.reprendre(trace)
+    gabarit, texte, libelle = question_pour(probleme)
+    interrogation = tenue.interroger(gabarit or code, texte, [code])
+
+    if not probleme.libelle_fr:
+        tenue.degradation(
+            f"« {libelle} » sans désignation française",
+            "question posée dans la langue du serveur à un corpus francophone",
+        )
+
+    reponse, cause = _obtenir(texte, gabarit, tenue)
+    if reponse is None:
+        tenue.repondue(interrogation, "indisponible")
+        return RequeteRendue(
+            gabarit=gabarit or code, texte=texte, codes=[code], issue="indisponible", refus=cause
+        )
+
+    tenue.repondue(
+        interrogation,
+        reponse.issue,
+        reponse.origine,
+        [defaut.motif for defaut in reponse.defauts],
+        reponse.redaction_indisponible,
+    )
+    for passage in reponse.passages:
+        tenue.passage(interrogation, passage.numero, passage.document, passage.page, passage.titre)
+    return RequeteRendue(
+        gabarit=gabarit or code,
+        texte=texte,
+        codes=[code],
+        issue=reponse.issue,
+        refus=reponse.refus,
+        affirmations=reponse.affirmations,
+        passages=reponse.passages,
+        defauts=reponse.defauts,
+        origine=reponse.origine,
+        redaction_indisponible=reponse.redaction_indisponible,
+    )
+
+
+def _obtenir(texte: str, gabarit: str, tenue: Tenue) -> tuple[Reponse | None, str]:
+    """Rend la réponse à une question, du cache ou du moteur, et consigne la lecture."""
+    deja = _cachee(texte)
+    if deja is not None:
+        tenue.lecture("question déjà posée", "cache", Frontiere.AUCUNE, statut="servie du cache")
+        return deja, ""
+
+    moteur = Documentaliste()
+    try:
+        tenue.lecture(
+            "POST /question", "documentaliste", Frontiere.SERVICE, "appel serveur à serveur"
+        )
+        reponse, cause = moteur.interroger(texte, gabarit)
+    finally:
         moteur.fermer()
-    return rendues
+    if cause:
+        tenue.degradation(cause, "réponse enregistrée servie à la place")
+    if reponse is not None:
+        _cacher(texte, reponse)
+    return reponse, cause
 
 
 def consulter(
-    demande: Consultation, jeton: Jeton | None = None
+    demande: Consultation, jeton: Jeton | None = None, base: str = ""
 ) -> tuple[ConsultationRendue, Trace]:
     """Déroule une consultation et rend le résultat avec sa trace."""
     tenue = Tenue(mode=demande.mode, contexte_patient=demande.patient)
@@ -204,23 +348,23 @@ def consulter(
     _autoriser(demande, jeton, tenue)
 
     try:
-        contexte = _lire(demande, jeton, tenue)
+        contexte = _lire(demande, jeton, tenue, base)
     except FhirIndisponible as erreur:
         tenue.degradation(f"serveur FHIR injoignable ({erreur})", "aucun dossier lu")
         trace = tenue.close()
-        return _rendue(demande, None, [], [], trace), trace
+        return _rendue(demande, None, [], trace), trace
 
     problemes = _resoudre(contexte, tenue)
-    requetes = _interroger(contexte, tenue)
     trace = tenue.close()
-    return _rendue(demande, contexte, problemes, requetes, trace), trace
+    # Aucune question n'est posée ici : c'est l'utilisateur qui désignera une condition.
+    # La passerelle ne choisit plus ce qui mérite d'être demandé.
+    return _rendue(demande, contexte, problemes, trace), trace
 
 
 def _rendue(
     demande: Consultation,
     contexte: ContextePatient | None,
     problemes: list[ProblemeRendu],
-    requetes: list[RequeteRendue],
     trace: Trace,
 ) -> ConsultationRendue:
     """Assemble la réponse de l'API à partir de ce qui a été obtenu."""
@@ -231,7 +375,6 @@ def _rendue(
         sexe=contexte.sexe if contexte else None,
         age=contexte.age() if contexte else None,
         problemes=problemes,
-        requetes=requetes,
         degradations=[
             DegradationRendue(cause=d.cause, consequence=d.consequence) for d in trace.degradations
         ],

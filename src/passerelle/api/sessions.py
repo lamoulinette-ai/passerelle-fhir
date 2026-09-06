@@ -28,6 +28,10 @@ class Session(BaseModel):
 
     demande: Demande | None = None
     jeton: Jeton | None = None
+    #: Base FHIR contre laquelle le parcours a été ouvert. Le retour et les consultations la
+    #: relisent ici : le visiteur a pu choisir autre chose que le serveur par défaut, et
+    #: retomber sur une variable globale lirait le dossier ailleurs qu'il ne l'a autorisé.
+    base: str = ""
     expiration: datetime = Field(default_factory=lambda: datetime.now(UTC) + DUREE)
 
     @property
@@ -47,10 +51,10 @@ class Sessions:
         self._sessions: dict[str, Session] = {}
         self._plafond = plafond
 
-    def ouvrir(self, identifiant: str, demande: Demande) -> Session:
-        """Ouvre une session pour un parcours d'autorisation."""
+    def ouvrir(self, identifiant: str, demande: Demande, base: str = "") -> Session:
+        """Ouvre une session pour un parcours d'autorisation contre une base donnée."""
         self._elaguer()
-        session = Session(demande=demande)
+        session = Session(demande=demande, base=base)
         self._sessions[identifiant] = session
         return session
 

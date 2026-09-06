@@ -27,8 +27,28 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
 from passerelle.api.patients import PATIENTS
-from passerelle.api.schemas import Consultation, ConsultationRendue, Etat, Perimetre
-from passerelle.api.service import PatientRefuse, cle_smt, consulter
+from passerelle.api.schemas import (
+    Consultation,
+    ConsultationRendue,
+    DegradationRendue,
+    Etat,
+    EtatSmart,
+    Interrogation,
+    InterrogationRendue,
+    Perimetre,
+    ServeurRendu,
+)
+from passerelle.api.serveurs import DEFAUT, SERVEURS
+from passerelle.api.serveurs import PAR_IDENTIFIANT as SERVEURS_PAR_ID
+from passerelle.api.service import (
+    ConditionInconnue,
+    PatientRefuse,
+    cle_smt,
+    consulter,
+    interroger_condition,
+    serveurs_joignables,
+    terminologie_repond,
+)
 from passerelle.api.sessions import Sessions
 from passerelle.documentaliste.client import api as documentaliste_api
 from passerelle.fhir.client import base as fhir_base
@@ -81,6 +101,35 @@ def _redirection() -> str:
     return os.environ.get("PASSERELLE_REDIRECTION", "http://localhost:8006/smart/retour").strip()
 
 
+def _front() -> str:
+    """Page qui reçoit le visiteur au retour du parcours d'autorisation.
+
+    Lue dans l'environnement, jamais dans la requête : une adresse de retour qu'un paramètre
+    pourrait choisir serait une redirection ouverte.
+    """
+    defaut = "http://localhost:9000/passerelle-fhir"
+    return os.environ.get("PASSERELLE_FRONT", "").strip() or defaut
+
+
+#: Motifs d'échec que la page peut recevoir. Vocabulaire fermé, et fermé pour une raison :
+#: le serveur d'autorisation rend son propre texte d'erreur, et le recopier dans une adresse
+#: que le navigateur affiche reviendrait à laisser un tiers écrire dans notre interface.
+MOTIFS = frozenset({"refus", "sans_parcours", "echange"})
+
+
+def _retour_au_front(motif: str = "") -> RedirectResponse:
+    """Ramène le visiteur sur la page, avec l'issue du parcours.
+
+    Le motif doit être déclaré : un motif inconnu est une faute de programmation, et la
+    laisser passer rouvrirait le chemin par lequel un texte étranger atteindrait l'adresse.
+    """
+    if motif and motif not in MOTIFS:
+        raise ValueError(f"motif non déclaré : {motif}")
+    issue = f"smart=echec&motif={motif}" if motif else "smart=ok"
+    separateur = "&" if "?" in _front() else "?"
+    return RedirectResponse(f"{_front()}{separateur}{issue}", status_code=302)
+
+
 def _temoin_sur() -> bool:
     """Vrai si le témoin de session doit porter l'attribut `Secure`.
 
@@ -100,7 +149,26 @@ def _limites() -> list[str]:
 
 registre = Registre()
 sessions = Sessions()
+
+#: Ce que le démarrage a constaté. Vide tant que le service n'a pas démarré.
+etat: dict[str, str] = {"terminologie": ""}
+
+#: Serveurs dont la configuration SMART a répondu au démarrage, par identifiant. Vide tant
+#: que le service n'a pas démarré, ce qui rend tout injoignable — et donc la démonstration
+#: dégradée. C'est le bon sens du défaut : ne proposer une connexion qu'après l'avoir éprouvée.
+joignables: dict[str, bool] = {}
+
 limiteur = Limiter(key_func=get_remote_address, default_limits=_limites())
+
+
+def _degradee() -> bool:
+    """Vrai quand aucun serveur ouvert au public n'a répondu au démarrage.
+
+    Seuls les serveurs ouverts au public comptent : les deux bacs à sable Oracle exigent des
+    identifiants personnels, et leur disponibilité ne change rien à ce qu'un visiteur peut
+    faire. Les compter ferait passer pour utilisable une démonstration qui ne l'est pas.
+    """
+    return not any(joignables.get(s.identifiant, False) for s in SERVEURS if s.ouvert_au_public)
 
 
 @asynccontextmanager
@@ -109,8 +177,19 @@ async def cycle(_app: FastAPI) -> AsyncIterator[None]:
     journal.info("serveur FHIR : %s", fhir_base())
     journal.info("moteur documentaire : %s", documentaliste_api())
     journal.info("témoin de session Secure : %s", _temoin_sur())
-    if not cle_smt():
-        journal.warning("clé SMT absente — les codes seront affichés bruts")
+    # Éprouvé une fois, pas déduit d'une clé : `$lookup` répond sans authentification.
+    etat["terminologie"] = terminologie_repond()
+    if etat["terminologie"]:
+        journal.info("terminologie disponible — concept témoin : « %s »", etat["terminologie"])
+    else:
+        journal.warning("terminologie injoignable — les codes seront affichés bruts")
+    journal.info("clé SMT configurée : %s", bool(cle_smt()))
+    joignables.update(serveurs_joignables())
+    if _degradee():
+        journal.warning(
+            "aucun serveur ouvert au public ne répond — la démonstration servira les dossiers "
+            "enregistrés"
+        )
     yield
 
 
@@ -130,11 +209,11 @@ app.add_middleware(
 @app.get("/health")
 def health() -> Etat:
     """Le processus répond, et l'état de ses deux dépendances."""
-    terminologie = "disponible" if cle_smt() else "indisponible"
+    disponible = bool(etat["terminologie"])
     return Etat(
         debout=True,
-        complet=bool(cle_smt()),
-        terminologie=terminologie,
+        complet=disponible,
+        terminologie="disponible" if disponible else "injoignable au démarrage",
         moteur_documentaire=documentaliste_api(),
         serveur_fhir=fhir_base(),
         traces=len(registre),
@@ -150,6 +229,18 @@ def perimetre() -> Perimetre:
             {"identifiant": p.identifiant, "libelle": p.libelle, "illustre": p.illustre}
             for p in PATIENTS
         ],
+        serveurs=[
+            ServeurRendu(
+                identifiant=serveur.identifiant,
+                libelle=serveur.libelle,
+                posture=serveur.posture,
+                ouvert_au_public=serveur.ouvert_au_public,
+                reserve=serveur.reserve,
+                joignable=joignables.get(serveur.identifiant, False),
+            )
+            for serveur in SERVEURS
+        ],
+        degradee=_degradee(),
         corpus="archive HAS du 18 juin 2026",
         avertissement=AVERTISSEMENT,
     )
@@ -164,24 +255,56 @@ def consultation(
     session = sessions.lire(session_id)
     jeton = session.jeton if session and session.autorisee else None
     try:
-        rendue, trace = consulter(demande, jeton)
+        rendue, trace = consulter(demande, jeton, base=session.base if session else "")
     except PatientRefuse as refus:
         raise HTTPException(status_code=403, detail=str(refus)) from refus
     registre.deposer(trace)
     return rendue
 
 
-@app.get("/smart/lancer")
-def lancer(reponse: Response) -> RedirectResponse:
-    """Ouvre un parcours d'autorisation SMART et pose le témoin de session."""
+@app.post("/interroger")
+def interrogation(demande: Interrogation) -> InterrogationRendue:
+    """Pose au corpus la question d'une condition que l'utilisateur a désignée.
+
+    La trace fait office d'autorisation : le code doit figurer parmi les problèmes qu'elle a
+    consignés. Sans cette contrainte, la route serait une recherche libre sur le corpus, et
+    la question ne viendrait plus d'un dossier lu — ce que le journal est censé raconter.
+    """
+    trace = registre.par_identifiant(demande.trace)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="trace inconnue ou sortie de la mémoire")
     try:
-        configuration = decouvrir(fhir_base())
+        requete = interroger_condition(trace, demande.code)
+    except ConditionInconnue as erreur:
+        raise HTTPException(status_code=400, detail=str(erreur)) from erreur
+    return InterrogationRendue(
+        trace=trace.identifiant,
+        requete=requete,
+        degradations=[
+            DegradationRendue(cause=d.cause, consequence=d.consequence) for d in trace.degradations
+        ],
+    )
+
+
+@app.get("/smart/lancer")
+def lancer(reponse: Response, serveur: str = "") -> RedirectResponse:
+    """Ouvre un parcours d'autorisation SMART et pose le témoin de session.
+
+    Le serveur est désigné par son **identifiant déclaré**, jamais par son adresse : accepter
+    une base arbitraire en paramètre laisserait n'importe qui faire interroger n'importe
+    quelle adresse par la passerelle.
+    """
+    retenu = SERVEURS_PAR_ID.get(serveur, DEFAUT) if serveur else DEFAUT
+    if serveur and serveur not in SERVEURS_PAR_ID:
+        raise HTTPException(status_code=400, detail=f"serveur inconnu : {serveur}")
+    try:
+        configuration = decouvrir(retenu.base)
     except DecouverteImpossible as erreur:
         raise HTTPException(status_code=503, detail=str(erreur)) from erreur
 
-    demande = demander(configuration, fhir_base(), _redirection())
+    demande = demander(configuration, retenu.base, _redirection())
     identifiant = secrets.token_urlsafe(24)
-    sessions.ouvrir(identifiant, demande)
+    sessions.ouvrir(identifiant, demande, base=retenu.base)
     redirection = RedirectResponse(demande.url, status_code=302)
     redirection.set_cookie(
         TEMOIN,
@@ -201,21 +324,54 @@ def retour(
     state: str = "",
     error: str = "",
     session_id: str | None = Cookie(default=None, alias=TEMOIN),
-) -> dict[str, str]:
-    """Reçoit le code d'autorisation et l'échange contre un jeton."""
+) -> RedirectResponse:
+    """Reçoit le code d'autorisation, l'échange, et renvoie le visiteur sur la page.
+
+    Cette route est atteinte par une **navigation du navigateur**, pas par un appel de la
+    page : rendre du JSON y laisserait le visiteur devant une accolade. Elle redirige donc
+    dans tous les cas, succès comme échec, et c'est `/smart/etat` que la page interroge
+    ensuite pour savoir ce qui s'est passé.
+
+    Le jeton ne traverse jamais le navigateur. Il est déposé dans la session, que seul le
+    témoin `httponly` désigne.
+    """
     if error:
-        raise HTTPException(status_code=400, detail=f"le serveur a refusé : {error}")
+        journal.warning("parcours refusé par le serveur d'autorisation : %s", error[:200])
+        return _retour_au_front("refus")
+
     session = sessions.lire(session_id)
     if session is None or session.demande is None:
-        raise HTTPException(status_code=400, detail="aucun parcours d'autorisation en cours")
+        journal.warning("retour sans parcours en cours — témoin absent ou session expirée")
+        return _retour_au_front("sans_parcours")
+
+    base = session.base or fhir_base()
     try:
-        configuration = decouvrir(fhir_base())
+        configuration = decouvrir(base)
         jeton = echanger(configuration, session.demande, code, state, _redirection())
     except (AutorisationRefusee, DecouverteImpossible) as erreur:
-        raise HTTPException(status_code=400, detail=str(erreur)) from erreur
+        journal.warning("échange du code impossible : %s", erreur)
+        return _retour_au_front("echange")
 
     sessions.deposer_jeton(session_id or "", jeton)
-    return {"contexte_patient": jeton.patient or "", "scopes": jeton.scope}
+    journal.info("parcours abouti — contexte patient : %s", jeton.patient or "aucun")
+    return _retour_au_front()
+
+
+@app.get("/smart/etat")
+def etat_smart(session_id: str | None = Cookie(default=None, alias=TEMOIN)) -> EtatSmart:
+    """Ce que la page peut savoir du parcours en cours — jamais le jeton."""
+    session = sessions.lire(session_id)
+    if session is None or not session.autorisee or session.jeton is None:
+        return EtatSmart(serveur=DEFAUT.base, serveur_identifiant=DEFAUT.identifiant)
+    base = session.base or fhir_base()
+    declare = next((serveur for serveur in SERVEURS if serveur.base == base), None)
+    return EtatSmart(
+        autorisee=True,
+        contexte_patient=session.jeton.patient or "",
+        scopes=session.jeton.scope,
+        serveur=base,
+        serveur_identifiant=declare.identifiant if declare else "",
+    )
 
 
 @app.get("/journal")

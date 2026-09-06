@@ -60,11 +60,13 @@ class TestInnocuite:
         assert all(requete.method == "GET" for requete in vues)
 
     def test_le_sondage_ne_rapatrie_pas_de_donnees(self) -> None:
-        """`_summary=count` rend un décompte, pas des dossiers."""
+        """Une lecture d'identifiant inexistant ne peut rien rendre, par construction."""
         vues: list[httpx.Request] = []
         observer(BASE, client=_client(_serveur(journal=vues)))
-        sondages = [r for r in vues if r.url.path.endswith("/Patient")]
-        assert all(r.url.params.get("_summary") == "count" for r in sondages)
+        sondages = [r for r in vues if "/Patient/" in r.url.path]
+        assert sondages, "aucun sondage émis, le test ne prouverait rien"
+        assert all("inexistant" in r.url.path for r in sondages)
+        assert all(not r.url.params for r in sondages), "aucun paramètre de recherche"
 
     def test_le_nombre_de_requetes_reste_petit(self) -> None:
         vues: list[httpx.Request] = []
@@ -81,7 +83,23 @@ class TestObservations:
         assert constat.scopes_v1 and constat.scopes_v2
 
     def test_la_lecture_anonyme_est_constatee(self) -> None:
-        assert observer(BASE, client=_client(_serveur(ouvert=True))).lecture_anonyme == "oui"
+        constat = observer(BASE, client=_client(_serveur(ouvert=True)))
+        assert constat.lecture_anonyme.startswith("oui")
+
+    def test_une_ressource_absente_prouve_que_la_lecture_etait_permise(self) -> None:
+        """`404` est un « oui » : le serveur a cherché avant de constater l'absence.
+
+        C'est le cas normal du sondage — il vise un identifiant qui n'existe nulle part.
+        """
+
+        def repondre(requete: httpx.Request) -> httpx.Response:
+            if ".well-known" in requete.url.path:
+                return httpx.Response(200, json=CONFIGURATION)
+            return httpx.Response(404, json={"resourceType": "OperationOutcome"})
+
+        constat = observer(BASE, client=_client(repondre))
+        assert constat.lecture_anonyme.startswith("oui")
+        assert "404" in constat.lecture_anonyme
 
     def test_une_lecture_anonyme_refusee_est_constatee(self) -> None:
         constat = observer(BASE, client=_client(_serveur(ouvert=False)))
@@ -89,11 +107,41 @@ class TestObservations:
 
     def test_le_rejet_d_un_jeton_invalide_est_constate(self) -> None:
         constat = observer(BASE, client=_client(_serveur(rejette_jeton_invalide=True)))
-        assert constat.jeton_invalide_rejete == "oui"
+        assert constat.jeton_invalide_rejete.startswith("oui")
 
     def test_un_serveur_qui_accepte_tout_est_constate(self) -> None:
         constat = observer(BASE, client=_client(_serveur(rejette_jeton_invalide=False)))
         assert constat.jeton_invalide_rejete.startswith("non")
+
+    def test_l_entete_de_negociation_est_envoye(self) -> None:
+        """Sans lui, un serveur rend `406` et la sonde y lisait un refus d'autorisation.
+
+        La découverte est exclue : `.well-known/smart-configuration` est du JSON ordinaire,
+        pas une ressource FHIR, et demander l'un pour l'autre serait une seconde erreur de
+        négociation.
+        """
+        vues: list[httpx.Request] = []
+        observer(BASE, client=_client(_serveur(journal=vues)))
+        fhir = [r for r in vues if ".well-known" not in r.url.path]
+        assert fhir, "aucune requête FHIR émise, le test ne prouverait rien"
+        assert all(r.headers.get("Accept") == "application/fhir+json" for r in fhir)
+
+    def test_un_statut_qui_ne_repond_pas_a_la_question_reste_indetermine(self) -> None:
+        """`406` refuse un format, `404` un chemin : ni l'un ni l'autre n'est un verdict.
+
+        Les compter comme des « non » ferait entrer dans un tableau publié une propriété que
+        personne n'a mesurée — la faute même que cette sonde existe pour éviter.
+        """
+
+        def refuser_le_format(requete: httpx.Request) -> httpx.Response:
+            if requete.url.path.endswith("/.well-known/smart-configuration"):
+                return httpx.Response(200, json=CONFIGURATION)
+            return httpx.Response(406, json={})
+
+        constat = observer(BASE, client=_client(refuser_le_format))
+        assert constat.lecture_anonyme.startswith("indéterminé")
+        assert constat.jeton_invalide_rejete.startswith("indéterminé")
+        assert "406" in constat.lecture_anonyme
 
 
 class TestScope:
@@ -132,7 +180,7 @@ class TestDegradation:
 
         constat = observer(BASE, client=_client(repondre))
         assert not constat.decouverte
-        assert constat.lecture_anonyme == "oui"
+        assert constat.lecture_anonyme.startswith("oui")
 
 
 class TestRendu:

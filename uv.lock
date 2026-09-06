@@ -271,6 +271,7 @@ api = [
 [package.dev-dependencies]
 dev = [
     { name = "httpx2" },
+    { name = "passerelle-fhir", extra = ["api"] },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -288,6 +289,7 @@ provides-extras = ["api"]
 [package.metadata.requires-dev]
 dev = [
     { name = "httpx2" },
+    { name = "passerelle-fhir", extras = ["api"] },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.6" },
 ]

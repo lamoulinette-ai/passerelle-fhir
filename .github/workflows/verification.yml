@@ -33,7 +33,7 @@ jobs:
           enable-cache: true
 
       - name: Installer les dépendances
-        run: uv sync --extra api
+        run: uv sync
 
       - name: Fautes
         run: uv run ruff check src/ tests/

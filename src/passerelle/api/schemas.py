@@ -20,6 +20,17 @@ class Consultation(BaseModel):
     mode: Mode = Mode.DEMONSTRATION
 
 
+class Interrogation(BaseModel):
+    """La condition qu'un utilisateur désigne dans un dossier déjà lu.
+
+    Le code est repris de la trace, pas fourni librement : c'est ce qui empêche la passerelle
+    de devenir un moteur de recherche sur le corpus, détaché de tout dossier.
+    """
+
+    trace: str = Field(min_length=1, max_length=64)
+    code: str = Field(min_length=1, max_length=64)
+
+
 class ProblemeRendu(BaseModel):
     """Un problème du dossier, tel qu'il a été lu puis résolu — ou non."""
 
@@ -66,10 +77,38 @@ class ConsultationRendue(BaseModel):
     sexe: str | None = None
     age: int | None = None
     problemes: list[ProblemeRendu] = Field(default_factory=list)
-    #: Vide quand aucune pathologie du périmètre n'est présente. C'est un résultat, pas un
-    #: échec : n'avoir rien à demander n'est pas échouer à demander.
-    requetes: list[RequeteRendue] = Field(default_factory=list)
+    #: Aucune question n'est posée ici : une consultation lit un dossier, et l'utilisateur
+    #: désigne ensuite la condition qui l'intéresse. Les réponses arrivent par `/interroger`.
     degradations: list[DegradationRendue] = Field(default_factory=list)
+
+
+class InterrogationRendue(BaseModel):
+    """Ce qu'une condition désignée a produit, et l'état de la trace après elle.
+
+    Les dégradations rendues sont celles de la **trace entière**, pas de la seule question :
+    la page en affiche un bandeau, et lui envoyer un sous-ensemble lui ferait effacer ce que
+    la lecture du dossier avait déjà signalé.
+    """
+
+    trace: str
+    requete: RequeteRendue
+    degradations: list[DegradationRendue] = Field(default_factory=list)
+
+
+class ServeurRendu(BaseModel):
+    """Un serveur interrogeable, tel que la page doit le présenter.
+
+    `posture` vient de la sonde de conformité, pas de la configuration publiée par le
+    serveur : c'est l'écart entre les deux que la démonstration montre.
+    """
+
+    identifiant: str
+    libelle: str
+    posture: str
+    ouvert_au_public: bool
+    reserve: str = ""
+    #: La configuration SMART a-t-elle répondu au démarrage ? Éprouvé, pas supposé.
+    joignable: bool = False
 
 
 class Perimetre(BaseModel):
@@ -77,8 +116,31 @@ class Perimetre(BaseModel):
 
     pathologies: list[str]
     patients: list[dict[str, str]]
+    serveurs: list[ServeurRendu] = Field(default_factory=list)
+    #: Vrai quand aucun serveur ouvert au public n'a répondu. La page montre alors les
+    #: dossiers enregistrés, et le dit — une dégradation nommée, pas un chemin parallèle.
+    degradee: bool = False
     corpus: str
     avertissement: str
+
+
+class EtatSmart(BaseModel):
+    """Ce que la page a besoin de savoir d'un parcours d'autorisation.
+
+    **Le jeton n'y figure pas, et ne doit jamais y figurer.** Il reste côté serveur, derrière
+    un témoin de session `httponly` ; le navigateur ne porte qu'un identifiant opaque. Le
+    rendre ici le mettrait à portée de n'importe quel script de la page.
+    """
+
+    autorisee: bool = False
+    #: Patient auquel le jeton donne accès. Vide quand le serveur n'en a pas fourni — ce qui
+    #: arrive, et que `_autoriser` traite comme un refus plutôt que comme un passe-partout.
+    contexte_patient: str = ""
+    scopes: str = ""
+    #: Serveur FHIR visé par le parcours, pour que la page le nomme sans le coder en dur.
+    serveur: str = ""
+    #: Identifiant du serveur déclaré, quand le parcours en a retenu un.
+    serveur_identifiant: str = ""
 
 
 class Etat(BaseModel):

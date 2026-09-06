@@ -19,6 +19,7 @@ from passerelle.documentaliste.client import Documentaliste
 from passerelle.documentaliste.schemas import Reponse
 from passerelle.requete.gabarits import Forme, texte
 from passerelle.requete.perimetre import PATHOLOGIES
+from passerelle.sondes import sortie
 
 
 def _observer(reponse: Reponse | None, cause: str) -> dict[str, object]:
@@ -83,9 +84,10 @@ def main() -> int:
         default=[forme.name for forme in Forme],
         help="noms des formulations à mesurer",
     )
-    analyseur.add_argument("--json", action="store_true")
+    sortie.declarer(analyseur)
     arguments = analyseur.parse_args()
 
+    sortie.delier_de_la_console()
     try:
         formes = [Forme[nom] for nom in arguments.formes]
     except KeyError as erreur:
@@ -94,11 +96,10 @@ def main() -> int:
 
     print(f"{len(PATHOLOGIES) * len(formes)} interrogations…", file=sys.stderr)
     releve = balayer(formes)
-    print()
-    if arguments.json:
-        print(json.dumps(releve, ensure_ascii=False, indent=2))
-    else:
-        print(en_markdown(releve))
+    rendu = (
+        json.dumps(releve, ensure_ascii=False, indent=2) if arguments.json else en_markdown(releve)
+    )
+    sortie.publier(rendu, arguments.sortie)
     return 0
 
 

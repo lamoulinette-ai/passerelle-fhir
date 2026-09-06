@@ -11,7 +11,11 @@ import httpx
 journal = logging.getLogger("passerelle.fhir")
 
 #: Point d'entrée R4 du SMART App Launcher, employé faute de `PASSERELLE_FHIR_BASE`.
-BASE_DEFAUT = "https://launch.smarthealthit.org/v/r4/fhir"
+#:
+#: Le segment `sim/e30` porte des options de lancement vides mais valides. Sans lui, la
+#: lecture fonctionne mais le point d'autorisation refuse toute demande : il tente de
+#: décoder une chaîne vide. Mesuré.
+BASE_DEFAUT = "https://launch.smarthealthit.org/v/r4/sim/e30/fhir"
 
 #: Nombre maximal de ressources demandées par page de recherche.
 PAGE = 100
@@ -54,6 +58,14 @@ class ClientFhir:
     def conditions(self, identifiant: str) -> list[dict[str, Any]]:
         """Lit les `Condition` d'un patient, toutes pages confondues."""
         return self._rechercher("/Condition", {"patient": identifiant})
+
+    def rechercher_conditions(self, parametres: dict[str, str]) -> list[dict[str, Any]]:
+        """Recherche des `Condition` sur des critères libres, toutes pages confondues.
+
+        Employée pour retrouver les porteurs d'un code sans balayer tous les dossiers.
+        Lecture seule, comme le reste du client : aucune méthode d'écriture n'existe ici.
+        """
+        return self._rechercher("/Condition", parametres)
 
     def _rechercher(self, chemin: str, parametres: dict[str, str]) -> list[dict[str, Any]]:
         """Suit les liens `next` d'un `Bundle` de recherche et rend les ressources trouvées."""

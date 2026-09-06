@@ -1,21 +1,25 @@
-"""Construction de la question documentaire à partir du contexte codé.
+"""Formulation de la question documentaire.
 
 Aucun modèle de langage n'intervient. Le gabarit **est** la spécification : il se lit, se
 teste et se journalise intégralement, et il ne décide jamais de ce qui est cliniquement
-pertinent — il apparie des codes déclarés.
+pertinent.
 
-Les formulations sont de la donnée, et plusieurs coexistent. Celle qui sert par défaut se
-choisit sur mesure, la sonde `sonde-formulations` rendant l'issue obtenue par chacune.
+Deux familles de formulations coexistent, et la différence entre elles est un fait de langue
+plutôt qu'un choix d'architecture. Les cinq formes **mesurées** s'adressent aux pathologies
+du périmètre, dont l'article est écrit à la main, pathologie par pathologie ; la **forme
+libre** s'adresse à une condition quelconque, dont aucune heuristique ne déduit le genre.
+
+Le périmètre ne filtre plus rien : il distingue les questions préparées des autres. La sonde
+`sonde-formulations` rejoue la comparaison des cinq premières, `sonde-libre` mesure ce que la
+sixième obtient.
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel
-
 from passerelle.fhir.schemas import ContextePatient, Probleme
-from passerelle.requete.perimetre import PATHOLOGIES, Pathologie, pathologie
+from passerelle.requete.perimetre import Pathologie, pathologie
 
 
 class Forme(StrEnum):
@@ -54,15 +58,21 @@ FORMULATIONS: dict[Forme, str] = {
 #: déclarées : les retirer rendrait la mesure irreproductible.
 FORME_DEFAUT = Forme.PARCOURS
 
+#: Formulation pour une condition que l'utilisateur désigne lui-même.
+#:
+#: Les cinq formulations ci-dessus supposent un article — « du diabète », « de l'insuffisance
+#: cardiaque » — qui est de la donnée, écrite pathologie par pathologie, parce qu'aucune
+#: heuristique ne déduit le genre d'un mot français. Un libellé quelconque n'en a pas.
+#:
+#: Le deux-points contourne le problème au lieu de le deviner : il introduit le libellé sans
+#: rien accorder. Ce que cette forme obtient du corpus est une question ouverte, que
+#: `sonde-libre` mesure — elle n'a pas été éprouvée quand les cinq autres l'ont été.
+FORMULATION_LIBRE = "que publie la Haute Autorité de Santé sur : {libelle} ?"
 
-class Requete(BaseModel):
-    """Une question documentaire et ce qui l'a produite."""
 
-    gabarit: str
-    forme: Forme
-    texte: str
-    libelle: str
-    codes: list[str]
+def question_libre(libelle: str) -> str:
+    """Rend la question posée pour une condition désignée par l'utilisateur."""
+    return FORMULATION_LIBRE.format(libelle=libelle.strip())
 
 
 def texte(patho: Pathologie, forme: Forme) -> str:
@@ -84,35 +94,3 @@ def apparier(contexte: ContextePatient) -> dict[str, list[Probleme]]:
         if patho is not None:
             apparies.setdefault(patho.identifiant, []).append(probleme)
     return apparies
-
-
-def construire(contexte: ContextePatient, forme: Forme = FORME_DEFAUT) -> list[Requete]:
-    """Rend une requête par pathologie appariée, dans l'ordre du périmètre.
-
-    Un contexte sans pathologie du périmètre rend une liste vide, jamais une requête vide :
-    n'avoir rien à demander n'est pas demander quelque chose de creux.
-    """
-    apparies = apparier(contexte)
-    requetes: list[Requete] = []
-    for patho in _pathologies_dans_l_ordre(apparies):
-        problemes = apparies[patho.identifiant]
-        requetes.append(
-            Requete(
-                gabarit=patho.identifiant,
-                forme=forme,
-                texte=texte(patho, forme),
-                libelle=patho.libelle,
-                codes=sorted(probleme.code.code for probleme in problemes),
-            )
-        )
-    return requetes
-
-
-def _pathologies_dans_l_ordre(apparies: dict[str, list[Probleme]]) -> list[Pathologie]:
-    """Rend les pathologies appariées dans l'ordre du périmètre, non celui du dossier.
-
-    L'ordre des ressources rendues par un serveur FHIR n'est pas garanti ; sans cette
-    remise en ordre, deux exécutions sur le même dossier produiraient des traces
-    différentes.
-    """
-    return [p for p in PATHOLOGIES if p.identifiant in apparies]

@@ -38,6 +38,19 @@ class Tenue:
             contexte_patient=contexte_patient,
         )
 
+    @classmethod
+    def reprendre(cls, trace: Trace) -> Tenue:
+        """Reprend une trace déjà ouverte pour y ajouter ce qui vient après.
+
+        La consultation lit le dossier, puis l'utilisateur désigne une condition, puis une
+        autre. Chaque question s'ajoute au **même** dossier de traçabilité : ouvrir une trace
+        par question perdrait le lien entre la lecture et ce qu'elle a permis de demander,
+        qui est précisément ce qu'un auditeur vient chercher.
+        """
+        tenue = cls.__new__(cls)
+        tenue.trace = trace
+        return tenue
+
     def autorise(self, scopes: list[str]) -> None:
         """Consigne les scopes réellement accordés, qui peuvent différer des demandés."""
         self.trace.scopes_accordes = list(scopes)

@@ -3,6 +3,11 @@ name = "passerelle-fhir"
 version = "0.0.1"
 description = "Contexte patient FHIR et recherche documentée dans les publications de la HAS"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+# Les deux voyagent dans la roue, sous `.dist-info/licenses/`. L'article 4(d) de la licence
+# impose que le NOTICE suive toute redistribution : un paquet installé qui l'aurait perdu
+# ne le satisferait plus.
+license-files = ["LICENSE", "NOTICE"]
 dependencies = [
     "httpx>=0.27",
     "pydantic>=2.9",
@@ -19,13 +24,24 @@ api = [
 
 [project.scripts]
 sonde-conformite = "passerelle.sondes.conformite:main"
+sonde-dossiers = "passerelle.sondes.dossiers:main"
 sonde-formulations = "passerelle.sondes.formulations:main"
+sonde-libre = "passerelle.sondes.libre:main"
+sonde-perimetre = "passerelle.sondes.perimetre:main"
+sonde-terminologie = "passerelle.sondes.terminologie:main"
 enregistrer-reponses = "passerelle.documentaliste.enregistrement:main"
 
 [dependency-groups]
+# Le groupe réclame le projet **avec son extra `api`** : `tests/test_api.py` importe
+# `fastapi`, et sans lui la suite ne se collecte même pas. La commande d'installation par
+# défaut ne doit pas produire un environnement où la vérification est impossible.
+#
+# Réclamer l'extra plutôt que recopier ses trois dépendances laisse leurs versions
+# déclarées à un seul endroit.
+#
 # `httpx2` ne sert qu'au client de test de Starlette, qui le préfère à `httpx` et avertit
 # quand il ne le trouve pas. Le code de production, lui, reste sur `httpx`.
-dev = ["pytest>=8.0", "ruff>=0.6", "httpx2"]
+dev = ["passerelle-fhir[api]", "pytest>=8.0", "ruff>=0.6", "httpx2"]
 
 [build-system]
 requires = ["hatchling"]

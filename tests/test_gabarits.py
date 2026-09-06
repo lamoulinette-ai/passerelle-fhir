@@ -1,20 +1,20 @@
-"""Ce que les gabarits construisent, et ce qu'ils refusent de construire.
+"""Ce que les gabarits formulent, et ce qu'ils refusent de formuler.
 
 Trois propriétés valent tous les autres tests de ce fichier :
 
-- **un contexte hors périmètre ne produit aucune requête**, jamais une requête creuse —
-  n'avoir rien à demander n'est pas demander quelque chose de vide ;
 - **aucune formulation produite n'est impérative** — c'est la règle 2 de la conception, et
   c'est ce qui sépare un outil documentaire d'une aide à la décision ;
-- **le code générique et son descendant mènent au même gabarit** — les données observées
-  n'emploient que des descendants, un autre serveur emploiera le générique.
+- **le code générique et son descendant mènent à la même pathologie** — les données
+  observées n'emploient que des descendants, un autre serveur emploiera le générique ;
+- **la forme libre n'accorde aucun article** — elle reçoit un libellé quelconque, dont
+  aucune heuristique ne déduit le genre.
 """
 
 from __future__ import annotations
 
 from passerelle.fhir.schemas import SYSTEME_SNOMED, CodeClinique, ContextePatient, Probleme
-from passerelle.requete.gabarits import FORMULATIONS, Forme, apparier, construire
-from passerelle.requete.perimetre import ECARTES, PATHOLOGIES, pathologie
+from passerelle.requete.gabarits import FORMULATIONS, Forme, apparier, question_libre, texte
+from passerelle.requete.perimetre import ECARTES, PATHOLOGIES, Pathologie, pathologie
 
 IMPERATIFS = (
     "prescrivez",
@@ -49,13 +49,54 @@ class TestPerimetre:
         """Un code LOINC identique en chiffres ne désigne pas la même chose."""
         assert pathologie("http://loinc.org", "44054006") is None
 
-    def test_le_prediabete_est_ecarte_et_documente(self) -> None:
-        """Son exclusion est un choix, pas un oubli : elle est consignée avec sa raison."""
-        assert pathologie(SYSTEME_SNOMED, "15777000") is None
-        assert "15777000" in ECARTES and ECARTES["15777000"]
+    def test_chaque_ecarte_porte_son_motif(self) -> None:
+        """Une exclusion est un choix, pas un oubli : elle est consignée avec sa raison."""
+        for code, motif in ECARTES.items():
+            assert pathologie(SYSTEME_SNOMED, code) is None
+            assert motif.strip()
+
+    def test_les_deux_codes_bpco_sont_sortis_apres_interrogation_du_corpus(self) -> None:
+        """Ils avaient été retenus sur la foi de leur libellé anglais, sans autre source.
+
+        Le corpus de la HAS a été interrogé sur chacun : aucun passage ne les rattache à la
+        maladie. Les garder reviendrait à faire passer une reconnaissance de chaîne de
+        caractères pour un périmètre déclaré.
+        """
+        assert {"185086009", "87433001"} <= set(ECARTES)
 
     def test_chaque_pathologie_porte_son_article(self) -> None:
         assert all(patho.article for patho in PATHOLOGIES)
+
+    def test_chaque_pathologie_a_au_moins_un_code(self) -> None:
+        """Une pathologie sans code ne s'apparierait jamais, et rien ne le dirait."""
+        assert all(patho.codes for patho in PATHOLOGIES)
+
+    def test_chaque_code_porte_un_fondement(self) -> None:
+        """La propriété qui empêche le glissement de recommencer.
+
+        Un code sans fondement est un jugement clinique posé sans source. Le test échoue
+        avant que la ligne n'atteigne le dépôt.
+        """
+        for patho in PATHOLOGIES:
+            for declare in patho.codes:
+                assert declare.fondement.strip(), f"{patho.identifiant} / {declare.code}"
+
+    def test_chaque_pathologie_cite_le_champ_de_son_guide(self) -> None:
+        """Le champ est repris du guide, pas reformulé — c'est lui qui fait autorité."""
+        for patho in PATHOLOGIES:
+            assert patho.guide.champ.strip()
+            assert patho.guide.url.startswith("https://www.has-sante.fr/")
+
+    def test_aucun_code_n_est_declare_deux_fois(self) -> None:
+        """Un même code sous deux pathologies rendrait l'appariement dépendant de l'ordre."""
+        vus = [declare.code for patho in PATHOLOGIES for declare in patho.codes]
+        assert len(vus) == len(set(vus))
+
+    def test_l_appariement_ne_repose_que_sur_la_liste_declaree(self) -> None:
+        """Un code hors liste ne s'apparie pas, quelle que soit sa parenté clinique."""
+        assert pathologie(SYSTEME_SNOMED, "13645005") is not None
+        assert pathologie(SYSTEME_SNOMED, "444814009") is None
+        assert pathologie(SYSTEME_SNOMED, "185086009") is None, "écarté après interrogation"
 
 
 class TestAppariement:
@@ -65,9 +106,9 @@ class TestAppariement:
         assert set(apparies) == {"diabete"}
 
     def test_un_generique_et_son_descendant_menent_au_meme_gabarit(self) -> None:
-        descendant = apparier(_contexte(("185086009", "active")))
-        generique = apparier(_contexte(("13645005", "active")))
-        assert set(descendant) == set(generique) == {"bpco"}
+        descendant = apparier(_contexte(("88805009", "active")))
+        generique = apparier(_contexte(("84114007", "active")))
+        assert set(descendant) == set(generique) == {"insuffisance_cardiaque"}
 
     def test_deux_codes_d_une_meme_pathologie_ne_font_qu_un_gabarit(self) -> None:
         apparies = apparier(_contexte(("44054006", "active"), ("368581000119106", "active")))
@@ -75,72 +116,42 @@ class TestAppariement:
         assert len(apparies["diabete"]) == 2
 
 
-class TestConstruction:
-    def test_un_contexte_hors_perimetre_ne_produit_rien(self) -> None:
-        assert construire(_contexte(("444814009", "active"))) == []
-
-    def test_un_contexte_vide_ne_produit_rien(self) -> None:
-        assert construire(ContextePatient(identifiant="essai")) == []
-
-    def test_deux_pathologies_produisent_deux_requetes(self) -> None:
-        """Jamais fusionnées : une question fusionnée n'a aucun document qui y réponde."""
-        requetes = construire(_contexte(("44054006", "active"), ("185086009", "active")))
-        assert len(requetes) == 2
-        assert {r.gabarit for r in requetes} == {"diabete", "bpco"}
-
-    def test_l_ordre_suit_le_perimetre_et_non_le_dossier(self) -> None:
-        """L'ordre des ressources d'un serveur FHIR n'est pas garanti."""
-        premier = construire(_contexte(("185086009", "active"), ("44054006", "active")))
-        second = construire(_contexte(("44054006", "active"), ("185086009", "active")))
-        assert [r.gabarit for r in premier] == [r.gabarit for r in second]
-
-    def test_les_codes_ayant_declenche_sont_consignes(self) -> None:
-        requete = construire(_contexte(("44054006", "active")))[0]
-        assert requete.codes == ["44054006"]
+def _patho(code: str) -> Pathologie:
+    """La pathologie d'un code du périmètre, dont l'absence serait une erreur du test."""
+    trouvee = pathologie(SYSTEME_SNOMED, code)
+    assert trouvee is not None, code
+    return trouvee
 
 
 class TestFormulation:
     def test_la_forme_phrasee_est_interrogative(self) -> None:
-        requete = construire(_contexte(("44054006", "active")), Forme.PRISE_EN_CHARGE)[0]
-        assert requete.texte.endswith("?")
-        assert "diabète de type 2" in requete.texte
+        question = texte(_patho("44054006"), Forme.PRISE_EN_CHARGE)
+        assert question.endswith("?")
+        assert "diabète de type 2" in question
 
     def test_la_forme_nue_est_le_libelle_seul(self) -> None:
-        requete = construire(_contexte(("44054006", "active")), Forme.LIBELLE)[0]
-        assert requete.texte == "diabète de type 2"
+        assert texte(_patho("44054006"), Forme.LIBELLE) == "diabète de type 2"
 
-    def test_les_deux_formes_partagent_gabarit_et_codes(self) -> None:
-        """Sans quoi la mesure du jour 9 comparerait deux implémentations."""
-        contexte = _contexte(("44054006", "active"))
-        nue = construire(contexte, Forme.LIBELLE)[0]
-        phrasee = construire(contexte, Forme.PRISE_EN_CHARGE)[0]
-        assert nue.gabarit == phrasee.gabarit
-        assert nue.codes == phrasee.codes
-        assert nue.texte != phrasee.texte
+    def test_deux_formes_de_la_meme_pathologie_different(self) -> None:
+        """Sans quoi la mesure des formulations comparerait deux fois la même phrase."""
+        patho = _patho("44054006")
+        assert texte(patho, Forme.LIBELLE) != texte(patho, Forme.PRISE_EN_CHARGE)
 
     def test_aucune_formulation_n_est_imperative(self) -> None:
         """Sur **toutes** les formulations candidates, y compris celles ajoutées plus tard."""
-        contexte = _contexte(
-            ("44054006", "active"), ("88805009", "active"), ("185086009", "active")
-        )
-        for forme in Forme:
-            for requete in construire(contexte, forme):
-                minuscule = requete.texte.lower()
-                assert not any(mot in minuscule for mot in IMPERATIFS)
+        for patho in PATHOLOGIES:
+            for forme in Forme:
+                assert not any(mot in texte(patho, forme).lower() for mot in IMPERATIFS)
 
     def test_chaque_forme_a_son_gabarit(self) -> None:
-        """Une forme déclarée sans gabarit lèverait au moment de construire, pas ici."""
+        """Une forme déclarée sans gabarit lèverait à la formulation, pas ici."""
         assert set(FORMULATIONS) == set(Forme)
 
     def test_les_articles_sont_corrects(self) -> None:
         """« du bronchopneumopathie » est ce qu'une heuristique aurait produit."""
-        contexte = _contexte(
-            ("44054006", "active"), ("88805009", "active"), ("185086009", "active")
-        )
-        textes = {r.gabarit: r.texte for r in construire(contexte, Forme.PRISE_EN_CHARGE)}
-        assert "du diabète" in textes["diabete"]
-        assert "de l'insuffisance" in textes["insuffisance_cardiaque"]
-        assert "de la bronchopneumopathie" in textes["bpco"]
+        assert "du diabète" in texte(_patho("44054006"), Forme.PRISE_EN_CHARGE)
+        assert "de l'insuffisance" in texte(_patho("84114007"), Forme.PRISE_EN_CHARGE)
+        assert "de la bronchopneumopathie" in texte(_patho("13645005"), Forme.PRISE_EN_CHARGE)
 
     def test_chaque_formulation_est_rendue_mot_pour_mot(self) -> None:
         """Le rendu réel de chaque gabarit, figé.
@@ -149,7 +160,6 @@ class TestFormulation:
         insuffisance cardiaque ». Aucune n'aurait échoué à un test de forme générale ; il
         faut lire les phrases.
         """
-        contexte = _contexte(("185086009", "active"))
         attendus = {
             Forme.LIBELLE: "bronchopneumopathie chronique obstructive",
             Forme.PRISE_EN_CHARGE: (
@@ -169,13 +179,28 @@ class TestFormulation:
                 "chronique obstructive ?"
             ),
         }
+        bpco = _patho("13645005")
         for forme, attendu in attendus.items():
-            assert construire(contexte, forme)[0].texte == attendu
+            assert texte(bpco, forme) == attendu
 
     def test_aucune_formulation_ne_porte_d_espace_double(self) -> None:
-        contexte = _contexte(
-            ("44054006", "active"), ("88805009", "active"), ("185086009", "active")
-        )
-        for forme in Forme:
-            for requete in construire(contexte, forme):
-                assert "  " not in requete.texte
+        for patho in PATHOLOGIES:
+            for forme in Forme:
+                assert "  " not in texte(patho, forme)
+
+
+class TestFormeLibre:
+    def test_elle_n_accorde_aucun_article(self) -> None:
+        """Elle reçoit un libellé quelconque, dont aucune heuristique ne déduit le genre.
+
+        Le deux-points contourne le problème au lieu de le deviner.
+        """
+        attendu = "que publie la Haute Autorité de Santé sur : anémie ?"
+        assert question_libre("anémie") == attendu
+
+    def test_elle_n_est_pas_imperative(self) -> None:
+        for libelle in ("anémie", "sinusite chronique", "AVC - accident vasculaire cérébral"):
+            assert not any(mot in question_libre(libelle).lower() for mot in IMPERATIFS)
+
+    def test_elle_ne_porte_pas_d_espace_double(self) -> None:
+        assert "  " not in question_libre("  anémie  ")

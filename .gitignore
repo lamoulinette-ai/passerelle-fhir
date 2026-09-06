@@ -16,9 +16,26 @@ build/
 # et l'emplacement des secrets. Rien de tout cela n'a sa place dans un dépôt public.
 deploy/
 
-# Contenu terminologique résolu au Serveur Multi-Terminologies.
-#
-# La licence d'affiliation SNOMED CT réserve l'accès à la terminologie aux utilisateurs
-# autorisés et impose un registre nominatif des sous-licenciés : un dépôt public ne peut
-# satisfaire ni l'un ni l'autre. Les identifiants circulent librement, les libellés non.
+# Filet : le cache terminologique vit en mémoire et rien ne l'écrit sur disque. Si un jour
+# quelque chose le persistait, il ne devrait pas partir dans le dépôt — la licence
+# d'affiliation SNOMED CT réserve l'accès à la terminologie aux utilisateurs autorisés.
 cache_terminologie/
+
+# Relevés portant des désignations SNOMED CT — jamais commités.
+#
+# Le NOTICE affirme que ce dépôt porte des identifiants de concepts « jamais leurs
+# libellés ». Ces trois relevés en portent : une table code → libellé sur trente-sept
+# concepts, le vidage des désignations d'un concept, et une colonne de libellés français.
+# Une table appariant des codes à leurs libellés est un « Dérivé » au sens de la licence
+# d'affiliation, dont la distribution est interdite. Les pousser rendrait le NOTICE faux
+# dans le fichier même qui doit suivre toute redistribution.
+#
+# Ils restent produits en local par les sondes, et se relisent là.
+docs/terminologie_releve.md
+docs/concept.md
+docs/libre_releve.md
+
+# Relevés de recherche de dossiers : aucun contenu SNOMED, mais des sorties générées, qui
+# figeraient un texte périmé jusqu'au prochain lancement de la sonde. Elles se rejouent.
+docs/dossiers_releve.md
+docs/dossiers_oracle.md

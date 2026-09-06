@@ -1,12 +1,15 @@
 """Ce que le service rend, et ce qu'il refuse.
 
-Quatre propriétés valent tous les autres tests de ce fichier :
+Cinq propriétés valent tous les autres tests de ce fichier :
 
+- **une consultation ne pose aucune question** — elle lit un dossier et le rend ; c'est
+  l'utilisateur qui désigne ensuite la condition qui l'intéresse ;
+- **une interrogation n'accepte qu'un code déjà présent dans sa trace** — sans cette
+  contrainte, la route serait une recherche libre sur le corpus, détachée de tout dossier ;
 - **une consultation dégradée rend un résultat et une trace qui nomme les causes** — sans
   quoi une clé absente et un service en panne seraient indiscernables d'un dossier vide ;
 - **un patient hors contexte est refusé par la passerelle et le refus est consigné** — le
   serveur amont, lui, ne l'applique pas : c'est le seul contrôle qui ait lieu ;
-- **un patient sans pathologie du périmètre produit zéro requête**, et c'est un résultat ;
 - **`/health` distingue « je réponds » de « je réponds complètement »**.
 """
 
@@ -24,7 +27,10 @@ from passerelle.api.schemas import Consultation
 from passerelle.documentaliste.client import Documentaliste
 from passerelle.fhir.client import FhirIndisponible
 from passerelle.journal.schemas import Frontiere, Mode
+from passerelle.smart.decouverte import DecouverteImpossible
 from passerelle.smart.schemas import Jeton
+from passerelle.terminologie.client import TerminologieIndisponible
+from passerelle.terminologie.schemas import Concept
 
 EXEMPLES = Path(__file__).parent / "exemples" / "reponses"
 
@@ -68,6 +74,29 @@ class _FauxFhir:
         return None
 
 
+class _FausseTerminologie:
+    """Un serveur de terminologies d'essai, dont on choisit ce qu'il résout."""
+
+    def __init__(self, libelles: dict[str, str] | None = None, tombe: bool = False) -> None:
+        self.libelles = libelles if libelles is not None else {"44054006": "diabète de type 2"}
+        self.tombe = tombe
+
+    def resoudre(self, systeme: str, code: str) -> Concept:
+        if self.tombe:
+            raise TerminologieIndisponible("injoignable")
+        return Concept(
+            systeme=systeme,
+            code=code,
+            display=self.libelles.get(code, ""),
+            libelle_fr=self.libelles.get(code),
+            version="version-d-essai",
+            terminologie="module d'essai",
+        )
+
+    def fermer(self) -> None:
+        return None
+
+
 def _faux_documentaliste(gestionnaire) -> Documentaliste:  # noqa: ANN001
     return Documentaliste(
         adresse="https://exemple.test",
@@ -89,22 +118,54 @@ REPONSE = {
 @pytest.fixture
 def brancher(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict]:
     """Remplace les deux dépendances extérieures par des doubles."""
-    reglages: dict = {"fhir": _FauxFhir(), "statut": 200, "charge": REPONSE}
+    reglages: dict = {
+        "fhir": _FauxFhir(),
+        "statut": 200,
+        "charge": REPONSE,
+        "terminologie": _FausseTerminologie(),
+        "joignable": True,
+        "appels": [],
+    }
 
     def fhir(*_a: object, **_k: object) -> _FauxFhir:
         return reglages["fhir"]
 
     def documentaliste(*_a: object, **_k: object) -> Documentaliste:
-        def repondre(_requete: httpx.Request) -> httpx.Response:
+        def repondre(requete: httpx.Request) -> httpx.Response:
+            reglages["appels"].append(str(requete.url))
             return httpx.Response(reglages["statut"], json=reglages["charge"])
 
         return _faux_documentaliste(repondre)
 
+    def terminologie(*_a: object, **_k: object) -> _FausseTerminologie:
+        return reglages["terminologie"]
+
+    def decouvrir(base: str, *_a: object, **_k: object) -> object:
+        if not reglages["joignable"]:
+            raise DecouverteImpossible(f"{base} : injoignable")
+        return object()
+
     monkeypatch.setattr(service, "ClientFhir", fhir)
     monkeypatch.setattr(service, "Documentaliste", documentaliste)
+    # Le service éprouve la terminologie au démarrage : sans ce double, le `TestClient`
+    # joindrait le serveur de l'ANS et la suite cesserait d'être hors ligne.
+    monkeypatch.setattr(service, "Terminologie", terminologie)
+    # Même raison pour les trois serveurs FHIR, éprouvés eux aussi au démarrage.
+    monkeypatch.setattr(service, "decouvrir", decouvrir)
+    # Le cache est un état de module : sans ce vidage, l'ordre des tests déciderait de leur
+    # résultat, et celui qui compte les appels au moteur passerait ou non selon ses voisins.
+    service.CACHE.clear()
     monkeypatch.delenv("PASSERELLE_SMT_CLE", raising=False)
     monkeypatch.setenv("RATELIMIT_ENABLED", "false")
     yield reglages
+    service.CACHE.clear()
+
+
+def _interroger(client: TestClient, brancher: dict, code: str) -> httpx.Response:
+    """Consulte un dossier portant ce seul code, puis désigne ce code — comme le ferait la page."""
+    brancher["fhir"] = _FauxFhir([_condition(code)])
+    trace = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
+    return client.post("/interroger", json={"trace": trace, "code": code})
 
 
 @pytest.fixture
@@ -122,11 +183,26 @@ class TestSante:
     def test_le_service_repond(self, client: TestClient) -> None:
         assert client.get("/health").status_code == 200
 
-    def test_sans_cle_smt_il_repond_mais_pas_completement(self, client: TestClient) -> None:
+    def test_une_terminologie_qui_repond_rend_le_service_complet(self, client: TestClient) -> None:
         etat = client.get("/health").json()
         assert etat["debout"] is True
+        assert etat["complet"] is True
+        assert etat["terminologie"] == "disponible"
+
+    def test_une_terminologie_injoignable_se_dit(self, brancher: dict) -> None:
+        """« Je réponds » et « je réponds complètement » restent deux choses différentes.
+
+        L'état est éprouvé au démarrage sur un concept témoin, jamais déduit de la présence
+        d'une clé : `$lookup` répond sans authentification.
+        """
+        brancher["terminologie"] = _FausseTerminologie(tombe=True)
+        from passerelle.api.app import app
+
+        with TestClient(app) as essai:
+            etat = essai.get("/health").json()
+        assert etat["debout"] is True
         assert etat["complet"] is False
-        assert etat["terminologie"] == "indisponible"
+        assert "injoignable" in etat["terminologie"]
 
 
 class TestPerimetre:
@@ -139,40 +215,57 @@ class TestPerimetre:
         """Il ne doit pas être écrit dans la page : on pourrait l'y oublier."""
         assert "dispositif médical" in client.get("/perimetre").json()["avertissement"]
 
+    def test_un_serveur_qui_repond_est_dit_joignable(self, client: TestClient) -> None:
+        charge = client.get("/perimetre").json()
+        assert all(serveur["joignable"] for serveur in charge["serveurs"])
+        assert charge["degradee"] is False
+
+    def test_aucun_serveur_joignable_degrade_la_demonstration(self, brancher: dict) -> None:
+        """La page a besoin de le savoir **avant** de proposer une connexion.
+
+        Présenter trois boutons dont aucun n'aboutit ferait porter à l'utilisateur le
+        diagnostic d'une panne que le service connaissait déjà à son démarrage.
+        """
+        brancher["joignable"] = False
+        from passerelle.api.app import app
+
+        with TestClient(app) as essai:
+            charge = essai.get("/perimetre").json()
+        assert not any(serveur["joignable"] for serveur in charge["serveurs"])
+        assert charge["degradee"] is True
+
 
 class TestConsultation:
-    def test_une_pathologie_du_perimetre_produit_une_requete(
+    def test_la_consultation_ne_pose_aucune_question(
         self, client: TestClient, brancher: dict
     ) -> None:
-        brancher["fhir"] = _FauxFhir([_condition("44054006")])
+        """Lire un dossier et interroger un corpus sont deux gestes distincts.
+
+        La passerelle ne choisit plus ce qui mérite d'être demandé : elle rend ce qu'elle a
+        lu, et attend que l'utilisateur désigne une condition.
+        """
+        brancher["fhir"] = _FauxFhir([_condition("44054006"), _condition("13645005")])
         rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
-        assert len(rendue["requetes"]) == 1
-        assert rendue["requetes"][0]["gabarit"] == "diabete"
+        assert "requetes" not in rendue, "le champ n'existe plus : il était toujours vide"
+        assert brancher["appels"] == [], "aucun appel au moteur documentaire"
+        assert len(rendue["problemes"]) == 2
         assert rendue["trace"]
 
-    def test_deux_pathologies_produisent_deux_requetes(
+    def test_un_probleme_hors_perimetre_est_rendu_et_signale(
         self, client: TestClient, brancher: dict
     ) -> None:
-        brancher["fhir"] = _FauxFhir([_condition("44054006"), _condition("185086009")])
-        rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
-        assert {r["gabarit"] for r in rendue["requetes"]} == {"diabete", "bpco"}
-
-    def test_aucune_pathologie_du_perimetre_produit_zero_requete(
-        self, client: TestClient, brancher: dict
-    ) -> None:
-        """C'est un résultat, pas un échec : la trace existe, les problèmes sont rendus."""
+        """Hors périmètre ne veut plus dire écarté : seulement « sans question préparée »."""
         brancher["fhir"] = _FauxFhir([_condition("444814009")])
         rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
-        assert rendue["requetes"] == []
         assert len(rendue["problemes"]) == 1
         assert rendue["problemes"][0]["dans_le_perimetre"] is False
-        assert rendue["trace"]
 
-    def test_une_condition_resolue_ne_declenche_rien(
+    def test_une_condition_resolue_garde_son_statut(
         self, client: TestClient, brancher: dict
     ) -> None:
         brancher["fhir"] = _FauxFhir([_condition("44054006", "resolved")])
-        assert client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["requetes"] == []
+        rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
+        assert rendue["problemes"][0]["statut"] == "resolved"
 
     def test_l_age_est_calcule(self, client: TestClient, brancher: dict) -> None:
         brancher["fhir"] = _FauxFhir([])
@@ -180,21 +273,38 @@ class TestConsultation:
 
 
 class TestDegradation:
-    def test_l_absence_de_cle_smt_est_nommee(self, client: TestClient, brancher: dict) -> None:
+    def test_le_libelle_francais_est_rendu(self, client: TestClient, brancher: dict) -> None:
         brancher["fhir"] = _FauxFhir([_condition("44054006")])
         rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
-        causes = " ".join(d["cause"] for d in rendue["degradations"])
-        assert "Multi-Terminologies" in causes
+        assert rendue["problemes"][0]["libelle_fr"] == "diabète de type 2"
+        assert rendue["degradations"] == []
+
+    def test_une_terminologie_injoignable_degrade_sans_vider(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        """Les codes restent bruts, les problèmes sont rendus, et la cause est nommée."""
+        brancher["fhir"] = _FauxFhir([_condition("44054006")])
+        brancher["terminologie"] = _FausseTerminologie(tombe=True)
+
+        rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
+        assert rendue["problemes"], "le contexte lu ne doit pas disparaître"
+        assert rendue["problemes"][0]["libelle_fr"] is None
+        assert any("terminologies" in d["cause"] for d in rendue["degradations"])
+
+    def test_un_code_non_traduit_reste_non_resolu(self, client: TestClient, brancher: dict) -> None:
+        """Le serveur rend un `display` même sans traduction ; il ne compte pas comme résolu."""
+        brancher["fhir"] = _FauxFhir([_condition("15777000")])
+        brancher["terminologie"] = _FausseTerminologie(libelles={})
+
+        rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
         assert rendue["problemes"][0]["libelle_fr"] is None
 
     def test_un_moteur_en_panne_degrade_sans_vider(
         self, client: TestClient, brancher: dict
     ) -> None:
-        brancher["fhir"] = _FauxFhir([_condition("44054006")])
         brancher["statut"], brancher["charge"] = 503, {}
-        rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
-        assert rendue["requetes"], "la requête construite doit rester visible"
-        assert rendue["requetes"][0]["origine"] == "enregistrée"
+        rendue = _interroger(client, brancher, "44054006").json()
+        assert rendue["requete"]["origine"] == "enregistrée"
         assert any("503" in d["cause"] for d in rendue["degradations"])
 
     def test_un_serveur_fhir_injoignable_rend_une_trace(
@@ -207,36 +317,99 @@ class TestDegradation:
         assert any("FHIR" in d["cause"] for d in rendue["degradations"])
 
 
-class TestEspacement:
-    def test_deux_interrogations_sont_espacees(
-        self, client: TestClient, brancher: dict, monkeypatch: pytest.MonkeyPatch
+class TestInterrogation:
+    def test_une_condition_du_perimetre_garde_sa_formulation_mesuree(
+        self, client: TestClient, brancher: dict
     ) -> None:
-        """Le fournisseur du modèle plafonne à une requête par seconde, par espace de travail.
+        rendue = _interroger(client, brancher, "44054006").json()
+        assert rendue["requete"]["gabarit"] == "diabete"
+        assert rendue["requete"]["codes"] == ["44054006"]
+        assert rendue["requete"]["passages"]
 
-        Deux pathologies produiraient deux appels dans la même seconde, et le second serait
-        refusé — ce qui s'est produit en ligne avant cette pause.
+    def test_une_condition_hors_perimetre_part_sur_la_forme_libre(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        """Le périmètre ne filtre plus rien : il distingue les questions préparées des autres."""
+        brancher["terminologie"] = _FausseTerminologie({"444814009": "infection virale"})
+        rendue = _interroger(client, brancher, "444814009").json()
+        assert rendue["requete"]["gabarit"] == "444814009"
+        assert "infection virale" in rendue["requete"]["texte"]
+
+    def test_un_code_absent_du_dossier_est_refuse(self, client: TestClient, brancher: dict) -> None:
+        """Sans cette borne, la route serait une recherche libre, détachée de tout dossier.
+
+        C'est la trace qui fait office d'autorisation : elle atteste qu'un dossier a été lu
+        et que ce code y figurait. Un code accepté sans elle romprait le lien entre la
+        lecture et la question, qui est tout ce que le journal raconte.
         """
-        pauses: list[float] = []
-        monkeypatch.setattr(service.time, "sleep", pauses.append)
-        brancher["fhir"] = _FauxFhir([_condition("44054006"), _condition("185086009")])
-
-        client.post("/consulter", json={"patient": DANS_LA_DEMO})
-        assert len(pauses) == 1, "une pause entre deux appels, aucune avant le premier"
-        assert pauses[0] >= 1.0
-
-    def test_une_seule_interrogation_n_attend_pas(
-        self, client: TestClient, brancher: dict, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        pauses: list[float] = []
-        monkeypatch.setattr(service.time, "sleep", pauses.append)
         brancher["fhir"] = _FauxFhir([_condition("44054006")])
+        trace = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
+        reponse = client.post("/interroger", json={"trace": trace, "code": "13645005"})
+        assert reponse.status_code == 400
+        assert brancher["appels"] == [], "le moteur ne doit pas avoir été appelé"
 
-        client.post("/consulter", json={"patient": DANS_LA_DEMO})
-        assert pauses == []
+    def test_une_trace_inconnue_rend_404(self, client: TestClient) -> None:
+        reponse = client.post("/interroger", json={"trace": "inexistante", "code": "44054006"})
+        assert reponse.status_code == 404
 
+    def test_la_question_s_ajoute_a_la_trace_de_la_consultation(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        """Une trace par consultation, pas une par question.
 
-class TestRedactionIndisponible:
-    def test_elle_remonte_dans_la_reponse_et_la_trace(
+        Ouvrir une trace neuve à chaque question perdrait le lien entre la lecture du dossier
+        et ce qu'elle a permis de demander — précisément ce qu'un auditeur vient chercher.
+        """
+        brancher["fhir"] = _FauxFhir([_condition("44054006"), _condition("13645005")])
+        trace = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
+        for code in ("44054006", "13645005"):
+            client.post("/interroger", json={"trace": trace, "code": code})
+
+        interrogations = client.get(f"/journal/{trace}").json()["interrogations"]
+        assert [i["gabarit"] for i in interrogations] == ["diabete", "bpco"]
+        assert len({i["question"] for i in interrogations}) == 2
+        for interrogation in interrogations:
+            assert interrogation["passages"], "chaque question garde ses propres passages"
+
+    def test_la_meme_question_n_est_posee_qu_une_fois(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        """Le corpus ne change pas d'un visiteur à l'autre.
+
+        Sans ce cache, une démonstration publique épuiserait en trois minutes les vingt
+        questions par heure que le moteur documentaire accorde par adresse — et la passerelle
+        l'appelle depuis une seule.
+        """
+        brancher["fhir"] = _FauxFhir([_condition("44054006")])
+        trace = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
+        for _ in range(3):
+            client.post("/interroger", json={"trace": trace, "code": "44054006"})
+
+        assert len(brancher["appels"]) == 1
+        acces = client.get(f"/journal/{trace}").json()["acces"]
+        assert sum(1 for a in acces if a["origine"] == "cache") == 2
+
+    def test_une_reponse_degradee_n_est_pas_retenue(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        """Servir plus tard un refus dû à une panne passagère figerait l'indisponibilité."""
+        brancher["statut"], brancher["charge"] = 503, {}
+        brancher["fhir"] = _FauxFhir([_condition("44054006")])
+        trace = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
+        for _ in range(2):
+            client.post("/interroger", json={"trace": trace, "code": "44054006"})
+
+        assert len(brancher["appels"]) == 2, "la panne ne doit pas être mise en cache"
+
+    def test_une_condition_sans_libelle_francais_est_signalee(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        """Poser une question anglaise à un corpus francophone doit se voir, pas se taire."""
+        brancher["terminologie"] = _FausseTerminologie(libelles={})
+        rendue = _interroger(client, brancher, "44054006").json()
+        assert any("désignation française" in d["cause"] for d in rendue["degradations"])
+
+    def test_la_redaction_indisponible_remonte_dans_la_reponse_et_la_trace(
         self, client: TestClient, brancher: dict
     ) -> None:
         """Un refus légitime et une rédaction coupée produisent la même issue.
@@ -245,12 +418,9 @@ class TestRedactionIndisponible:
         comme une décision de se taire — exactement la confusion que le moteur documentaire
         s'emploie à éviter.
         """
-        brancher["fhir"] = _FauxFhir([_condition("44054006")])
         brancher["charge"] = {**REPONSE, "redaction_indisponible": True, "affirmations": []}
-
-        rendue = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
-        requete = rendue["requetes"][0]
-        assert requete["origine"] == "enregistrée", "la réponse enregistrée prend le relais"
+        rendue = _interroger(client, brancher, "44054006").json()
+        assert rendue["requete"]["origine"] == "enregistrée", "l'enregistrée prend le relais"
         assert any("rédaction indisponible" in d["cause"] for d in rendue["degradations"])
 
         trace = client.get(f"/journal/{rendue['trace']}").json()
@@ -278,7 +448,7 @@ class TestApplicationDuContexte:
         rendue, trace = service.consulter(
             Consultation(patient=DANS_LA_DEMO, mode=Mode.SMART), jeton
         )
-        assert rendue.requetes
+        assert rendue.problemes
         assert trace.scopes_accordes == ["patient/Patient.read"]
         assert any(a.frontiere is Frontiere.DELEGUEE for a in trace.acces)
 
@@ -289,24 +459,7 @@ class TestJournal:
         identifiant = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
         trace = client.get(f"/journal/{identifiant}").json()
         assert trace["identifiant"] == identifiant
-        assert len(trace["interrogations"]) == 1
-
-    def test_deux_pathologies_produisent_deux_interrogations_tracees(
-        self, client: TestClient, brancher: dict
-    ) -> None:
-        """Le défaut trouvé à l'essai réel, éprouvé de bout en bout.
-
-        Avant correction, la trace ne gardait que la dernière question et lui attribuait les
-        passages de la première — un journal qui affirmait le contraire de ce qui s'est passé.
-        """
-        brancher["fhir"] = _FauxFhir([_condition("44054006"), _condition("185086009")])
-        identifiant = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
-        interrogations = client.get(f"/journal/{identifiant}").json()["interrogations"]
-
-        assert [i["gabarit"] for i in interrogations] == ["diabete", "bpco"]
-        assert len({i["question"] for i in interrogations}) == 2
-        for interrogation in interrogations:
-            assert interrogation["passages"], "chaque question garde ses propres passages"
+        assert trace["interrogations"] == [], "une lecture seule n'a rien demandé"
 
     def test_la_trace_distingue_problemes_vus_et_retenus(
         self, client: TestClient, brancher: dict
@@ -320,8 +473,7 @@ class TestJournal:
     def test_les_deux_frontieres_figurent_dans_la_trace(
         self, client: TestClient, brancher: dict
     ) -> None:
-        brancher["fhir"] = _FauxFhir([_condition("44054006")])
-        identifiant = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
+        identifiant = _interroger(client, brancher, "44054006").json()["trace"]
         acces = client.get(f"/journal/{identifiant}").json()["acces"]
         origines = {a["origine"] for a in acces}
         assert {"serveur FHIR", "documentaliste"} <= origines
