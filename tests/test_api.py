@@ -14,7 +14,14 @@ Les interrogations du corpus sont éprouvées dans `test_interrogation.py`.
 
 from __future__ import annotations
 
-from doubles import DANS_LA_DEMO, FausseTerminologie, FauxFhir, condition, interroger
+from doubles import (
+    DANS_LA_DEMO,
+    ICD10CM,
+    FausseTerminologie,
+    FauxFhir,
+    condition,
+    interroger,
+)
 from fastapi.testclient import TestClient
 
 
@@ -90,10 +97,24 @@ class TestSante:
 
 
 class TestPerimetre:
-    def test_les_patients_et_pathologies_sont_annonces(self, client: TestClient) -> None:
-        charge = client.get("/perimetre").json()
-        assert len(charge["patients"]) == 5
-        assert len(charge["pathologies"]) == 3
+    def test_chaque_patient_annonce_ses_serveurs(self, client: TestClient) -> None:
+        """Un identifiant ne vaut que sur le serveur qui le publie ; la page doit le savoir."""
+        patients = client.get("/perimetre").json()["patients"]
+        assert len([p for p in patients if "lanceur" in p["serveurs"]]) == 4
+        assert len([p for p in patients if "oracle_ouvert" in p["serveurs"]]) == 3
+        assert all(p["serveurs"] for p in patients), "aucun dossier sans serveur"
+
+    def test_un_serveur_sans_couche_d_autorisation_est_annonce_tel_quel(
+        self, client: TestClient
+    ) -> None:
+        """La page n'a pas de connexion à proposer pour lui, et donc rien à griser."""
+        serveurs = {s["identifiant"]: s for s in client.get("/perimetre").json()["serveurs"]}
+        assert serveurs["oracle_ouvert"]["lecture_directe"] is True
+        assert serveurs["oracle_securise"]["lecture_directe"] is False
+
+    def test_aucune_pathologie_n_est_annoncee(self, client: TestClient) -> None:
+        """En annoncer trois laissait croire que la démonstration ne portait que sur elles."""
+        assert "pathologies" not in client.get("/perimetre").json()
 
     def test_l_avertissement_est_rendu_par_l_api(self, client: TestClient) -> None:
         """Il ne doit pas être écrit dans la page : on pourrait l'y oublier."""
@@ -117,6 +138,69 @@ class TestPerimetre:
             charge = essai.get("/perimetre").json()
         assert not any(serveur["joignable"] for serveur in charge["serveurs"])
         assert charge["degradee"] is True
+
+
+class TestReferentielNonHeberge:
+    """Le serveur français n'héberge pas tous les référentiels du monde, et le dit vite."""
+
+    def _consulter(self, client: TestClient, brancher: dict) -> dict:
+        brancher["fhir"] = FauxFhir([condition("44054006"), condition("I11.0", systeme=ICD10CM)])
+        brancher["terminologie"] = FausseTerminologie(inconnus={ICD10CM})
+        return client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()
+
+    def test_un_code_inconnu_ne_coute_pas_les_autres_libelles(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        """La régression qui comptait : un seul code américain vidait tout le dossier."""
+        problemes = {p["code"]: p for p in self._consulter(client, brancher)["problemes"]}
+        assert problemes["44054006"]["libelle_fr"] == "diabète de type 2"
+        assert problemes["I11.0"]["libelle_fr"] is None
+
+    def test_la_degradation_ne_parle_pas_de_panne(self, client: TestClient, brancher: dict) -> None:
+        causes = [d["cause"] for d in self._consulter(client, brancher)["degradations"]]
+        assert any("hors des référentiels" in cause for cause in causes)
+        assert not any("injoignable" in cause for cause in causes)
+
+    def test_la_terminologie_reste_disponible(self, client: TestClient, brancher: dict) -> None:
+        """Elle a répondu. L'inscrire injoignable dans `/health` serait un second mensonge."""
+        self._consulter(client, brancher)
+        assert client.get("/health").json()["complet"] is True
+
+
+class TestServeurDesigne:
+    """La page nomme un serveur déclaré, jamais une adresse."""
+
+    def test_un_serveur_inconnu_est_refuse(self, client: TestClient) -> None:
+        reponse = client.post(
+            "/consulter", json={"patient": DANS_LA_DEMO, "serveur": "chez-l-attaquant"}
+        )
+        assert reponse.status_code == 400
+
+    def test_une_adresse_ne_passe_pas_pour_un_identifiant(self, client: TestClient) -> None:
+        """La garde tient sur la forme aussi : une base n'est jamais un identifiant déclaré."""
+        reponse = client.post(
+            "/consulter",
+            json={"patient": DANS_LA_DEMO, "serveur": "https://serveur-de-l-attaquant.test/fhir"},
+        )
+        assert reponse.status_code == 400
+
+    def test_un_serveur_absent_vaut_le_serveur_par_defaut(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        brancher["fhir"] = FauxFhir([condition("44054006")])
+        assert client.post("/consulter", json={"patient": DANS_LA_DEMO}).status_code == 200
+
+    def test_un_dossier_oracle_s_ouvre_sur_le_serveur_oracle(
+        self, client: TestClient, brancher: dict
+    ) -> None:
+        brancher["fhir"] = FauxFhir([condition("44054006")])
+        reponse = client.post(
+            "/consulter", json={"patient": "12743119", "serveur": "oracle_ouvert"}
+        )
+        assert reponse.status_code == 200
+
+    def test_le_meme_dossier_est_refuse_sur_le_lanceur(self, client: TestClient) -> None:
+        assert client.post("/consulter", json={"patient": "12743119"}).status_code == 403
 
 
 class TestConsultation:

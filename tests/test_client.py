@@ -1,7 +1,11 @@
 """Le transport FHIR, éprouvé sans réseau.
 
-La propriété qui compte ici est la pagination : un `Bundle` de recherche ne rend qu'une
-page, et un client qui ignore le lien `next` rend un dossier tronqué sans jamais échouer.
+Deux propriétés comptent ici :
+
+- **la pagination** — un `Bundle` de recherche ne rend qu'une page, et un client qui ignore
+  le lien `next` rend un dossier tronqué sans jamais échouer ;
+- **l'autorisation atteint la requête** — un jeton obtenu, consigné dans la trace, mais
+  jamais joint à l'en-tête, ne se voit que devant un serveur qui l'exige.
 """
 
 from __future__ import annotations
@@ -36,6 +40,28 @@ class TestConfiguration:
     def test_un_delai_illisible_degrade_sans_lever(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("PASSERELLE_FHIR_DELAI", "bientôt")
         assert delai() == 10.0
+
+
+class TestAutorisation:
+    """Un jeton consigné dans la trace mais absent de la requête est un journal qui ment.
+
+    Les en-têtes se lisent sur le transport que le client construit lui-même : lui injecter
+    un transport de test contournerait précisément la fusion qu'on éprouve.
+    """
+
+    @staticmethod
+    def _entetes(entetes: dict[str, str] | None = None) -> httpx.Headers:
+        return ClientFhir(adresse="https://exemple.test/fhir", entetes=entetes)._client.headers
+
+    def test_l_en_tete_d_autorisation_part_avec_la_requete(self) -> None:
+        assert self._entetes({"Authorization": "Bearer secret"})["Authorization"] == "Bearer secret"
+
+    def test_accept_survit_a_la_fusion(self) -> None:
+        """Un serveur au moins rend 406 sans lui : un appelant ne doit pas pouvoir l'effacer."""
+        assert self._entetes({"Accept": "text/plain"})["Accept"] == "application/fhir+json"
+
+    def test_sans_jeton_aucune_autorisation_n_est_envoyee(self) -> None:
+        assert "authorization" not in self._entetes()
 
 
 class TestLecture:

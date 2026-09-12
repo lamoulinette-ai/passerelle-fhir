@@ -24,8 +24,28 @@ from fastapi.testclient import TestClient
 
 from passerelle.api import service
 from passerelle.api.schemas import Consultation
+from passerelle.api.serveurs import PAR_IDENTIFIANT as SERVEURS_PAR_ID
 from passerelle.journal.schemas import Frontiere, Mode
 from passerelle.smart.schemas import Jeton
+
+#: Dossier publié par Oracle, absent du lanceur. Il éprouve que la déclaration est par serveur.
+CHEZ_ORACLE = "12743119"
+
+
+def _entetes_construits(
+    monkeypatch: pytest.MonkeyPatch, demande: Consultation, jeton: Jeton | None = None
+) -> dict[str, str] | None:
+    """Les en-têtes avec lesquels le service a construit son client FHIR."""
+    vus: dict[str, dict[str, str] | None] = {"entetes": None}
+    construire = service.ClientFhir
+
+    def espion(adresse: str | None = None, entetes: dict[str, str] | None = None) -> object:
+        vus["entetes"] = entetes
+        return construire(adresse=adresse, entetes=entetes)
+
+    monkeypatch.setattr(service, "ClientFhir", espion)
+    service.consulter(demande, jeton)
+    return vus["entetes"]
 
 
 class TestInterrogation:
@@ -153,6 +173,52 @@ class TestApplicationDuContexte:
         with pytest.raises(service.PatientRefuse):
             service.consulter(Consultation(patient=AUTRE, mode=Mode.SMART), jeton)
 
+    def test_un_jeton_sans_contexte_ouvre_les_dossiers_declares(self, brancher: dict) -> None:
+        """Les portées `user/` n'ont pas de contexte patient : en exiger un fermerait tout."""
+        brancher["fhir"] = FauxFhir([condition("44054006")])
+        jeton = Jeton(access_token="j", scope="user/Patient.read user/Condition.read")
+        rendue, _ = service.consulter(Consultation(patient=DANS_LA_DEMO, mode=Mode.SMART), jeton)
+        assert rendue.problemes
+
+    def test_un_jeton_sans_contexte_ne_franchit_pas_la_declaration(self, brancher: dict) -> None:
+        """Le plancher du garde-fou : sans contexte, seule la liste du serveur autorise.
+
+        Le dossier existe — chez Oracle — mais pas sur le serveur de cette consultation.
+        """
+        jeton = Jeton(access_token="j", scope="user/Patient.read")
+        with pytest.raises(service.PatientRefuse):
+            service.consulter(Consultation(patient=CHEZ_ORACLE, mode=Mode.SMART), jeton)
+
+    def test_le_jeton_atteint_le_transport_et_pas_seulement_la_trace(
+        self, brancher: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Le serveur amont est le seul à pouvoir dire que l'en-tête manquait.
+
+        Les doubles remplacent le client entier : sans ce test, un jeton obtenu, consigné et
+        jamais envoyé laisse la suite au vert et se découvre en production.
+        """
+        brancher["fhir"] = FauxFhir([condition("44054006")])
+        jeton = Jeton(access_token="secret", scope="user/Patient.read")
+        entetes = _entetes_construits(
+            monkeypatch, Consultation(patient=DANS_LA_DEMO, mode=Mode.SMART), jeton
+        )
+        assert entetes == {"Authorization": "Bearer secret"}
+
+    def test_sans_autorisation_aucun_en_tete_n_est_construit(
+        self, brancher: dict, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        brancher["fhir"] = FauxFhir([condition("44054006")])
+        assert _entetes_construits(monkeypatch, Consultation(patient=DANS_LA_DEMO)) is None
+
+    def test_le_meme_dossier_s_ouvre_sur_le_serveur_qui_le_declare(self, brancher: dict) -> None:
+        """La déclaration est par serveur : le refus précédent tient au serveur, pas au dossier."""
+        brancher["fhir"] = FauxFhir([condition("44054006")])
+        rendue, _ = service.consulter(
+            Consultation(patient=CHEZ_ORACLE),
+            serveur=SERVEURS_PAR_ID["oracle_ouvert"],
+        )
+        assert rendue.problemes
+
     def test_le_patient_du_contexte_est_accepte(self, brancher: dict) -> None:
         brancher["fhir"] = FauxFhir([condition("44054006")])
         jeton = Jeton(access_token="j", scope="patient/Patient.read", patient=DANS_LA_DEMO)
@@ -172,9 +238,10 @@ class TestJournal:
         assert trace["identifiant"] == identifiant
         assert trace["interrogations"] == [], "une lecture seule n'a rien demandé"
 
-    def test_la_trace_distingue_problemes_vus_et_retenus(
+    def test_la_trace_dit_la_formulation_de_chaque_probleme(
         self, client: TestClient, brancher: dict
     ) -> None:
+        """Les deux sont consignés et interrogeables ; seule leur tournure diffère."""
         brancher["fhir"] = FauxFhir([condition("44054006"), condition("444814009")])
         identifiant = client.post("/consulter", json={"patient": DANS_LA_DEMO}).json()["trace"]
         problemes = client.get(f"/journal/{identifiant}").json()["problemes"]

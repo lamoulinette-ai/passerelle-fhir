@@ -30,10 +30,16 @@ def autoriser(
     redirection: str = REDIRECTION_DEFAUT,
     client: httpx.Client | None = None,
     demander_url: object = input,
+    portees: str = "",
 ) -> Jeton:
-    """Déroule le parcours d'autorisation et rend le jeton obtenu."""
+    """Déroule le parcours d'autorisation et rend le jeton obtenu.
+
+    `portees` permet d'éprouver une liste de portées autre que celle configurée — ce qu'une
+    sonde doit pouvoir faire pour mesurer ce qu'un serveur accorde, plutôt que ce qu'il
+    accorde à notre déploiement.
+    """
     configuration = decouvrir(base, client=client)
-    demande = demander(configuration, base, redirection)
+    demande = demander(configuration, base, redirection, portees=portees)
 
     print("\nOuvrez cette adresse, menez le parcours à son terme :\n")
     print(demande.url)

@@ -12,6 +12,11 @@ from pydantic import BaseModel, Field
 #: acceptée ; la sonde de conformité dira ce que chaque serveur accepte réellement.
 SCOPES_DEFAUT = "launch/patient patient/Patient.read patient/Condition.read openid fhirUser"
 
+#: Scopes du lancement depuis un dossier patient, faute de `PASSERELLE_SMART_SCOPES_EHR`.
+#: `launch` remplace `launch/patient` : le contexte vient du jeton de lancement, il n'est
+#: pas demandé au serveur d'autorisation.
+SCOPES_EHR_DEFAUT = "launch patient/Patient.read patient/Condition.read openid fhirUser"
+
 
 class ConfigurationSmart(BaseModel):
     """Ce que publie `.well-known/smart-configuration`, réduit à ce qui sert."""

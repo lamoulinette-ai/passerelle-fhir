@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from passerelle.documentaliste.client import Documentaliste
 from passerelle.fhir.client import FhirIndisponible
-from passerelle.terminologie.client import TerminologieIndisponible
+from passerelle.terminologie.client import ConceptInconnu, TerminologieIndisponible
 from passerelle.terminologie.schemas import Concept
 
 EXEMPLES = Path(__file__).parent / "exemples" / "reponses"
@@ -33,11 +33,16 @@ PATIENT = {
 }
 
 
-def condition(code: str, statut: str = "active") -> dict:
+#: Référentiel américain, que le serveur de terminologies français n'héberge pas. Les dossiers
+#: d'éditeur en portent : un dossier Oracle mêle 145 codages SNOMED et 85 en ICD-10-CM.
+ICD10CM = "http://hl7.org/fhir/sid/icd-10-cm"
+
+
+def condition(code: str, statut: str = "active", systeme: str = "http://snomed.info/sct") -> dict:
     return {
         "resourceType": "Condition",
         "clinicalStatus": {"coding": [{"code": statut}]},
-        "code": {"coding": [{"system": "http://snomed.info/sct", "code": code}]},
+        "code": {"coding": [{"system": systeme, "code": code}]},
     }
 
 
@@ -65,13 +70,22 @@ class FauxFhir:
 class FausseTerminologie:
     """Un serveur de terminologies d'essai, dont on choisit ce qu'il résout."""
 
-    def __init__(self, libelles: dict[str, str] | None = None, tombe: bool = False) -> None:
+    def __init__(
+        self,
+        libelles: dict[str, str] | None = None,
+        tombe: bool = False,
+        inconnus: set[str] | None = None,
+    ) -> None:
         self.libelles = libelles if libelles is not None else {"44054006": "diabète de type 2"}
         self.tombe = tombe
+        #: Systèmes que ce serveur n'héberge pas. Il répond, et dit qu'il ne les connaît pas.
+        self.inconnus = inconnus or set()
 
     def resoudre(self, systeme: str, code: str) -> Concept:
         if self.tombe:
             raise TerminologieIndisponible("injoignable")
+        if systeme in self.inconnus:
+            raise ConceptInconnu(f"{systeme}|{code}")
         return Concept(
             systeme=systeme,
             code=code,

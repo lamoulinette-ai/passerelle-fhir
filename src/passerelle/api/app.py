@@ -16,7 +16,6 @@ import secrets
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import Cookie, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +25,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from passerelle import environnement
 from passerelle.api.patients import PATIENTS
 from passerelle.api.schemas import (
     Consultation,
@@ -35,10 +35,12 @@ from passerelle.api.schemas import (
     EtatSmart,
     Interrogation,
     InterrogationRendue,
+    PatientRendu,
     Perimetre,
     ServeurRendu,
 )
-from passerelle.api.serveurs import DEFAUT, SERVEURS
+from passerelle.api.serveurs import DEFAUT, SERVEURS, ServeurFhir
+from passerelle.api.serveurs import PAR_BASE as SERVEURS_PAR_BASE
 from passerelle.api.serveurs import PAR_IDENTIFIANT as SERVEURS_PAR_ID
 from passerelle.api.service import (
     ConditionInconnue,
@@ -49,12 +51,11 @@ from passerelle.api.service import (
     terminologie_repond,
     terminologie_vue,
 )
-from passerelle.api.sessions import Sessions
+from passerelle.api.sessions import Session, Sessions
 from passerelle.documentaliste.client import api as documentaliste_api
 from passerelle.fhir.client import base as fhir_base
 from passerelle.journal.schemas import Trace
 from passerelle.journal.tenue import Registre
-from passerelle.requete.perimetre import PATHOLOGIES
 from passerelle.smart.autorisation import AutorisationRefusee, demander, echanger
 from passerelle.smart.decouverte import DecouverteImpossible, decouvrir
 
@@ -71,19 +72,7 @@ AVERTISSEMENT = (
 ORIGINES_DEFAUT = ("http://localhost:9000", "http://127.0.0.1:9000")
 
 
-def charger_env(chemin: Path = Path(".env")) -> None:
-    """Charge un fichier `.env` s'il existe, sans écraser l'environnement déjà posé."""
-    if not chemin.is_file():
-        return
-    for ligne in chemin.read_text(encoding="utf-8").splitlines():
-        nue = ligne.strip()
-        if not nue or nue.startswith("#") or "=" not in nue:
-            continue
-        cle, _, valeur = nue.partition("=")
-        os.environ.setdefault(cle.strip(), valeur.split("#")[0].strip())
-
-
-charger_env()
+environnement.charger()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s - %(message)s")
 
 
@@ -227,10 +216,14 @@ def health() -> Etat:
 def perimetre() -> Perimetre:
     """Ce que la démonstration couvre, pour que la page n'ait rien à coder en dur."""
     return Perimetre(
-        pathologies=[patho.libelle for patho in PATHOLOGIES],
         patients=[
-            {"identifiant": p.identifiant, "libelle": p.libelle, "illustre": p.illustre}
-            for p in PATIENTS
+            PatientRendu(
+                identifiant=patient.identifiant,
+                libelle=patient.libelle,
+                illustre=patient.illustre,
+                serveurs=list(patient.serveurs),
+            )
+            for patient in PATIENTS
         ],
         serveurs=[
             ServeurRendu(
@@ -240,6 +233,7 @@ def perimetre() -> Perimetre:
                 ouvert_au_public=serveur.ouvert_au_public,
                 reserve=serveur.reserve,
                 joignable=joignables.get(serveur.identifiant, False),
+                lecture_directe=serveur.lecture_directe,
             )
             for serveur in SERVEURS
         ],
@@ -247,6 +241,25 @@ def perimetre() -> Perimetre:
         corpus="archive HAS du 18 juin 2026",
         avertissement=AVERTISSEMENT,
     )
+
+
+def _serveur_de(demande: Consultation, session: Session | None) -> ServeurFhir:
+    """Ramène une consultation à l'un des serveurs déclarés, ou refuse.
+
+    Une session autorisée l'emporte sur le champ reçu : le jeton a été obtenu contre un
+    serveur précis, et laisser la page en désigner un autre ferait lire un dossier ailleurs
+    qu'où l'autorisation a été consentie.
+    """
+    if session is not None and session.autorisee:
+        ouvert = SERVEURS_PAR_BASE.get(session.base.rstrip("/"))
+        if ouvert is not None:
+            return ouvert
+    if not demande.serveur:
+        return DEFAUT
+    retenu = SERVEURS_PAR_ID.get(demande.serveur)
+    if retenu is None:
+        raise HTTPException(status_code=400, detail=f"serveur inconnu : {demande.serveur}")
+    return retenu
 
 
 @app.post("/consulter")
@@ -258,7 +271,7 @@ def consultation(
     session = sessions.lire(session_id)
     jeton = session.jeton if session and session.autorisee else None
     try:
-        rendue, trace = consulter(demande, jeton, base=session.base if session else "")
+        rendue, trace = consulter(demande, jeton, _serveur_de(demande, session))
     except PatientRefuse as refus:
         raise HTTPException(status_code=403, detail=str(refus)) from refus
     registre.deposer(trace)
@@ -289,25 +302,25 @@ def interrogation(demande: Interrogation) -> InterrogationRendue:
     )
 
 
-@app.get("/smart/lancer")
-def lancer(reponse: Response, serveur: str = "") -> RedirectResponse:
-    """Ouvre un parcours d'autorisation SMART et pose le témoin de session.
+def _ouvrir_parcours(serveur: ServeurFhir, lancement: str = "") -> RedirectResponse:
+    """Ouvre un parcours d'autorisation contre un serveur déclaré et pose le témoin.
 
-    Le serveur est désigné par son **identifiant déclaré**, jamais par son adresse : accepter
-    une base arbitraire en paramètre laisserait n'importe qui faire interroger n'importe
-    quelle adresse par la passerelle.
+    Commun aux deux modes de lancement, qui ne diffèrent que par la façon dont le serveur
+    est désigné et par la présence d'un jeton de lancement.
     """
-    retenu = SERVEURS_PAR_ID.get(serveur, DEFAUT) if serveur else DEFAUT
-    if serveur and serveur not in SERVEURS_PAR_ID:
-        raise HTTPException(status_code=400, detail=f"serveur inconnu : {serveur}")
     try:
-        configuration = decouvrir(retenu.base)
+        configuration = decouvrir(serveur.base)
     except DecouverteImpossible as erreur:
         raise HTTPException(status_code=503, detail=str(erreur)) from erreur
 
-    demande = demander(configuration, retenu.base, _redirection())
+    # Les portées déclarées ne valent que pour le lancement autonome. Un lancement depuis un
+    # dossier fournit le contexte patient par son jeton : `patient/` y désigne quelque chose,
+    # et lui substituer les portées d'un parcours sans contexte perdrait ce que le dossier
+    # venait précisément d'apporter.
+    portees = "" if lancement else serveur.portees
+    demande = demander(configuration, serveur.base, _redirection(), lancement or None, portees)
     identifiant = secrets.token_urlsafe(24)
-    sessions.ouvrir(identifiant, demande, base=retenu.base)
+    sessions.ouvrir(identifiant, demande, base=serveur.base)
     redirection = RedirectResponse(demande.url, status_code=302)
     redirection.set_cookie(
         TEMOIN,
@@ -319,6 +332,39 @@ def lancer(reponse: Response, serveur: str = "") -> RedirectResponse:
         path="/",
     )
     return redirection
+
+
+@app.get("/smart/lancer")
+def lancer(serveur: str = "") -> RedirectResponse:
+    """Ouvre un parcours d'autorisation autonome, à la demande du visiteur.
+
+    Le serveur est désigné par son **identifiant déclaré**, jamais par son adresse : accepter
+    une base arbitraire en paramètre laisserait n'importe qui faire interroger n'importe
+    quelle adresse par la passerelle.
+    """
+    if serveur and serveur not in SERVEURS_PAR_ID:
+        raise HTTPException(status_code=400, detail=f"serveur inconnu : {serveur}")
+    return _ouvrir_parcours(SERVEURS_PAR_ID.get(serveur, DEFAUT) if serveur else DEFAUT)
+
+
+@app.get("/smart/ehr")
+def lancer_depuis_dossier(iss: str = "", launch: str = "") -> RedirectResponse:
+    """Ouvre un parcours d'autorisation lancé depuis un dossier patient.
+
+    Le dossier annonce le serveur par son adresse et le contexte par un jeton de lancement.
+    L'adresse est **ramenée à un serveur déclaré avant toute requête sortante** : c'est la
+    garde de `/smart/lancer`, appliquée à une adresse plutôt qu'à un identifiant.
+
+    Ni l'adresse ni le jeton reçus ne sont repris dans un message d'erreur : ils viennent de
+    l'extérieur, et les réécrire dans une réponse laisserait un tiers s'exprimer par nous.
+    """
+    retenu = SERVEURS_PAR_BASE.get(iss.strip().rstrip("/"))
+    if retenu is None:
+        journal.warning("lancement depuis un serveur non déclaré")
+        raise HTTPException(status_code=400, detail="serveur non déclaré")
+    if not launch.strip():
+        raise HTTPException(status_code=400, detail="contexte de lancement absent")
+    return _ouvrir_parcours(retenu, launch.strip())
 
 
 @app.get("/smart/retour")
@@ -375,6 +421,25 @@ def etat_smart(session_id: str | None = Cookie(default=None, alias=TEMOIN)) -> E
         serveur=base,
         serveur_identifiant=declare.identifiant if declare else "",
     )
+
+
+@app.post("/smart/deconnexion")
+def deconnexion(
+    reponse: Response,
+    session_id: str | None = Cookie(default=None, alias=TEMOIN),
+) -> EtatSmart:
+    """Ferme la session d'autorisation et rend le visiteur au choix du serveur.
+
+    **Elle ne ferme que la nôtre.** La session ouverte chez le serveur d'autorisation ne nous
+    appartient pas ; un visiteur qui recommence un parcours y repassera sans qu'on lui
+    redemande ses identifiants. La page le dit plutôt que de laisser croire le contraire.
+
+    Idempotente : appelée sans témoin, elle répond quand même. Le témoin est effacé avec les
+    mêmes attributs que ceux de sa pose, faute de quoi le navigateur garderait le sien.
+    """
+    sessions.fermer(session_id)
+    reponse.delete_cookie(TEMOIN, path="/", samesite="lax", secure=_temoin_sur(), httponly=True)
+    return EtatSmart(serveur=DEFAUT.base, serveur_identifiant=DEFAUT.identifiant)
 
 
 @app.get("/journal")

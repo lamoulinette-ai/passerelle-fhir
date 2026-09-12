@@ -43,11 +43,21 @@ def delai() -> float:
 class ClientFhir:
     """Client de lecture. N'écrit jamais : aucune méthode ne produit de requête modifiante."""
 
-    def __init__(self, adresse: str | None = None, client: httpx.Client | None = None) -> None:
+    def __init__(
+        self,
+        adresse: str | None = None,
+        client: httpx.Client | None = None,
+        entetes: dict[str, str] | None = None,
+    ) -> None:
+        """Construit le transport. `entetes` porte l'autorisation, quand il y en a une.
+
+        `Accept` est posé **en dernier** : un serveur au moins rend 406 sans lui, et aucun
+        appelant n'a de raison légitime de le remplacer.
+        """
         self.adresse = (adresse or base()).rstrip("/")
         self._client = client or httpx.Client(
             timeout=delai(),
-            headers={"Accept": "application/fhir+json"},
+            headers={**(entetes or {}), "Accept": "application/fhir+json"},
         )
         journal.info("serveur FHIR : %s", self.adresse)
 

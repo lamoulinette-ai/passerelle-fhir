@@ -1,8 +1,9 @@
 """Quels dossiers du bac à sable portent plusieurs pathologies du périmètre.
 
-Le cas à deux requêtes a disparu de la démonstration quand le périmètre s'est resserré. Il
-est le seul à montrer ce que la trace fait d'une consultation : une interrogation par
-question posée, et non une question écrasant la précédente.
+Outil d'atelier : il sert à **trouver des candidats** à la démonstration, pas à trier ce qui
+mériterait une question. Le périmètre n'est ici qu'un filet de pêche — les dossiers qu'il
+ramène sont ceux dont on peut éprouver les formulations mesurées, et une fois retenus, toutes
+leurs conditions s'interrogent.
 
 **On cherche par code, pas en balayant les dossiers.** Interroger `Condition?code=…` pour
 chacun des codes déclarés coûte une poignée de requêtes ; parcourir tous les patients du bac
@@ -19,7 +20,7 @@ import json
 import sys
 from collections import defaultdict
 
-from passerelle.api.patients import PAR_IDENTIFIANT
+from passerelle.api.patients import est_declare
 from passerelle.fhir.client import ClientFhir, FhirIndisponible
 from passerelle.fhir.contexte import contexte as assembler
 from passerelle.requete.gabarits import apparier
@@ -95,7 +96,7 @@ def examiner(client: ClientFhir, identifiants: list[str]) -> list[dict[str, obje
                 "vivant": contexte.deces is None,
                 "conditions": len(contexte.problemes),
                 "pathologies": sorted(apparier(contexte)),
-                "deja_retenu": identifiant in PAR_IDENTIFIANT,
+                "deja_retenu": est_declare(identifiant, "lanceur"),
             }
         )
     return dossiers

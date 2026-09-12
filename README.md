@@ -38,10 +38,11 @@ Cinq règles de conception matérialisent cette ligne :
    qu'aucune source ne rattachait à leur maladie ont été écartés après interrogation du
    corpus. Voir [`docs/perimetre.md`](docs/perimetre.md).
 
-Une conséquence est assumée plutôt que masquée : le périmètre de la BPCO se réduit à son
-code générique, absent des données de démonstration. **Aucun dossier enregistré ne porte de
-BPCO** — sa formulation mesurée ne se voit qu'en connectant un serveur. Un périmètre plus
-large aurait fait meilleure impression sans que personne puisse dire d'où il venait.
+Une conséquence est assumée plutôt que masquée : le périmètre de la BPCO se réduit à son code
+générique, absent des données de démonstration. **Aucun dossier enregistré ne porte de BPCO** —
+sa formulation mesurée ne se voit qu'en connectant un serveur. Un périmètre plus large aurait
+fait meilleure impression sans que personne puisse dire d'où il venait.
+
 
 ## Ce que la passerelle retient d'un dossier
 
@@ -73,13 +74,19 @@ uv run ruff check src/ tests/ ; uv run ruff format --check src/ tests/ ; uv run 
 
 ## Les sondes
 
-Six commandes mesurent ce qui n'a pas à être supposé : ce qu'un serveur FHIR applique
+Sept commandes mesurent ce qui n'a pas à être supposé : ce qu'un serveur FHIR applique
 vraiment (`sonde-conformite`), quelle formulation obtient une réponse du corpus
 (`sonde-formulations`), quelle part des codes obtient un libellé français
 (`sonde-terminologie`), ce que le corpus répond quand on lui demande de fonder le périmètre
 (`sonde-perimetre`), ce qu'il rend sur une condition quelconque désignée hors périmètre
-(`sonde-libre`), et quels dossiers du bac à sable portent une pathologie déclarée
-(`sonde-dossiers`).
+(`sonde-libre`), quels dossiers du bac à sable portent une pathologie déclarée
+(`sonde-dossiers`), et ce que les deux bacs à sable d'éditeur rendent possible
+(`sonde-oracle`).
+
+**`sonde-oracle` prend ses identifiants de patients en argument**, là où `sonde-dossiers` les
+découvre. Ce n'est pas une négligence : sur Oracle Millennium, `Condition` exige `patient`,
+`subject` ou `_id`, et une recherche par code y est impossible. La liste ne peut venir que
+des patients de test publiés par l'éditeur.
 
 Chacune accepte `--json` et `--sortie CHEMIN`. **Employer `--sortie` plutôt qu'une
 redirection** : les relevés portent des caractères que la console Windows ne sait pas

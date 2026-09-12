@@ -14,10 +14,16 @@ from passerelle.journal.schemas import Mode
 
 
 class Consultation(BaseModel):
-    """La demande : un patient, et sous quel mode le lire."""
+    """La demande : un patient, sous quel mode le lire, et sur quel serveur le chercher.
+
+    `serveur` est un **identifiant déclaré**, jamais une adresse : accepter une base
+    arbitraire laisserait n'importe qui faire interroger n'importe quelle adresse par la
+    passerelle. Vide, il vaut le serveur par défaut ; une session autorisée l'emporte sur lui.
+    """
 
     patient: str = Field(min_length=1, max_length=128)
     mode: Mode = Mode.DEMONSTRATION
+    serveur: str = Field(default="", max_length=64)
 
 
 class Interrogation(BaseModel):
@@ -39,6 +45,9 @@ class ProblemeRendu(BaseModel):
     libelle_source: str = ""
     libelle_fr: str | None = None
     statut: str = ""
+    #: La formulation de la question a-t-elle été mesurée contre le corpus ? Ne sélectionne
+    #: rien : toutes les conditions sont interrogeables, celles-ci sous une tournure éprouvée,
+    #: les autres sous la forme libre.
     dans_le_perimetre: bool = False
 
 
@@ -95,6 +104,15 @@ class InterrogationRendue(BaseModel):
     degradations: list[DegradationRendue] = Field(default_factory=list)
 
 
+class PatientRendu(BaseModel):
+    """Un dossier de démonstration, et les serveurs déclarés où il existe."""
+
+    identifiant: str
+    libelle: str
+    illustre: str
+    serveurs: list[str]
+
+
 class ServeurRendu(BaseModel):
     """Un serveur interrogeable, tel que la page doit le présenter.
 
@@ -109,13 +127,21 @@ class ServeurRendu(BaseModel):
     reserve: str = ""
     #: La configuration SMART a-t-elle répondu au démarrage ? Éprouvé, pas supposé.
     joignable: bool = False
+    #: Le serveur se lit-il sans parcours d'autorisation ? Vrai quand il n'a aucune couche
+    #: d'autorisation : il n'y a alors pas de connexion à proposer, et rien à griser.
+    lecture_directe: bool = False
 
 
 class Perimetre(BaseModel):
-    """Ce que la démonstration couvre, pour que la page n'ait rien à coder en dur."""
+    """Ce que la démonstration couvre, pour que la page n'ait rien à coder en dur.
 
-    pathologies: list[str]
-    patients: list[dict[str, str]]
+    Les pathologies déclarées n'y figurent pas : les annoncer laissait croire que la
+    démonstration ne portait que sur elles, alors que toute condition d'un dossier lu est
+    interrogeable. Ce qu'elles distinguent — une formulation mesurée — se dit sur la réponse,
+    là où le lecteur peut en juger.
+    """
+
+    patients: list[PatientRendu]
     serveurs: list[ServeurRendu] = Field(default_factory=list)
     #: Vrai quand aucun serveur ouvert au public n'a répondu. La page montre alors les
     #: dossiers enregistrés, et le dit — une dégradation nommée, pas un chemin parallèle.

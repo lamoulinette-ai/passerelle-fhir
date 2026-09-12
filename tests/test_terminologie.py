@@ -14,7 +14,11 @@ from collections.abc import Callable
 import httpx
 import pytest
 
-from passerelle.terminologie.client import Terminologie, TerminologieIndisponible
+from passerelle.terminologie.client import (
+    ConceptInconnu,
+    Terminologie,
+    TerminologieIndisponible,
+)
 
 Gestionnaire = Callable[[httpx.Request], httpx.Response]
 BASE = "https://exemple.test/fhir"
@@ -180,6 +184,24 @@ class TestDegradation:
     def test_une_erreur_http_est_refusee(self) -> None:
         with pytest.raises(TerminologieIndisponible):
             _client(_repond({}, 503)).resoudre("s", "c")
+
+
+class TestConceptInconnu:
+    """Un référentiel que le serveur français n'héberge pas n'est pas une panne du serveur."""
+
+    def test_un_404_nomme_le_concept_inconnu(self) -> None:
+        with pytest.raises(ConceptInconnu):
+            _client(_repond({}, 404)).resoudre("http://hl7.org/fhir/sid/icd-10-cm", "I11.0")
+
+    def test_il_reste_une_indisponibilite_pour_qui_ne_fait_pas_la_difference(self) -> None:
+        """Les sondes attrapent `TerminologieIndisponible` : la sous-classe les laisse intactes."""
+        assert issubclass(ConceptInconnu, TerminologieIndisponible)
+
+    def test_une_panne_n_est_pas_un_concept_inconnu(self) -> None:
+        """La distinction doit tenir dans les deux sens, sans quoi elle n'en est pas une."""
+        with pytest.raises(TerminologieIndisponible) as leve:
+            _client(_repond({}, 503)).resoudre("s", "c")
+        assert not isinstance(leve.value, ConceptInconnu)
 
 
 class TestRequete:

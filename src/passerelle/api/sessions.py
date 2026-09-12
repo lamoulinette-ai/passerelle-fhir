@@ -70,6 +70,11 @@ class Sessions:
             return None
         return session
 
+    def fermer(self, identifiant: str | None) -> None:
+        """Retire une session. Sans effet si elle n'existe pas — la fermeture est idempotente."""
+        if identifiant:
+            self._sessions.pop(identifiant, None)
+
     def deposer_jeton(self, identifiant: str, jeton: Jeton) -> None:
         """Attache un jeton à une session ouverte."""
         session = self._sessions.get(identifiant)

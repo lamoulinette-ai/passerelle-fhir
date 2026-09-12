@@ -48,11 +48,12 @@ class Acces(BaseModel):
 
 
 class ProblemeObserve(BaseModel):
-    """Un problème lu dans le dossier, résolu ou non, retenu ou non.
+    """Un problème lu dans le dossier, résolu ou non.
 
-    `dans_le_perimetre` porte la seule sélection que la passerelle opère elle-même. C'est ce
-    qui permet de lire, dans la trace, qu'un dossier de vingt-deux problèmes n'en a fait
-    agir que trois — et de vérifier que les dix-neuf autres étaient bien hors périmètre.
+    `dans_le_perimetre` ne dit pas qu'un problème a été retenu — aucun ne l'est, tous sont
+    interrogeables. Il dit sous quelle tournure la question serait posée : une formulation
+    mesurée contre le corpus, ou la forme libre. C'est ce qui permet de relire une réponse
+    en sachant ce qui la précédait.
     """
 
     systeme: str
@@ -141,11 +142,6 @@ class Trace(BaseModel):
         if not self.problemes:
             return None
         return sum(1 for p in self.problemes if p.resolu) / len(self.problemes)
-
-    @property
-    def retenus(self) -> list[ProblemeObserve]:
-        """Les problèmes qui appartiennent au périmètre déclaré."""
-        return [probleme for probleme in self.problemes if probleme.dans_le_perimetre]
 
     @property
     def degrade(self) -> bool:

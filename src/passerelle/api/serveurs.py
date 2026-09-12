@@ -28,6 +28,19 @@ class ServeurFhir(BaseModel):
     ouvert_au_public: bool
     #: Ce qui manque ou ce qui gêne, quand quelque chose manque ou gêne.
     reserve: str = ""
+    #: Le serveur se lit-il sans parcours d'autorisation ?
+    #:
+    #: Vrai quand il n'a aucune couche d'autorisation. Distinct de `ouvert_au_public`, qui
+    #: dit qu'un parcours est menable sans compte : ici, il n'y a pas de parcours du tout, et
+    #: la page n'a donc aucune connexion à proposer ni à griser.
+    lecture_directe: bool = False
+    #: Portées demandées à ce serveur. Vide, celles de la configuration s'appliquent.
+    #:
+    #: Elles ne peuvent pas être communes : le préfixe `patient/` désigne le patient d'un
+    #: contexte de lancement, et n'a de sens que si le serveur en fournit un. Là où il n'en
+    #: fournit pas, c'est `user/` qu'il faut demander — ce que le praticien connecté a le
+    #: droit de voir. Mesuré serveur par serveur, jamais supposé.
+    portees: str = ""
 
 
 SERVEURS: tuple[ServeurFhir, ...] = (
@@ -49,6 +62,7 @@ SERVEURS: tuple[ServeurFhir, ...] = (
         posture="aucune couche d'autorisation — ignore jusqu'aux jetons fabriqués",
         ouvert_au_public=False,
         reserve="lecture directe, sans parcours d'autorisation à mener",
+        lecture_directe=True,
     ),
     ServeurFhir(
         identifiant="oracle_securise",
@@ -57,6 +71,10 @@ SERVEURS: tuple[ServeurFhir, ...] = (
         posture="applique les portées accordées — le seul des trois",
         ouvert_au_public=False,
         reserve="exige des identifiants personnels, hors de portée d'un visiteur",
+        # Ce serveur ne propose pas de sélecteur de patient à une persona `provider` : une
+        # demande préfixée `patient/` s'y fait refuser, faute de contexte à désigner. Le
+        # relevé de `sonde-oracle` porte la liste accordée telle qu'elle a été obtenue.
+        portees="user/Patient.read user/Condition.read openid fhirUser",
     ),
 )
 
@@ -64,6 +82,14 @@ SERVEURS: tuple[ServeurFhir, ...] = (
 #: une adresse. Accepter une base arbitraire en paramètre laisserait n'importe qui faire
 #: interroger n'importe quelle adresse par la passerelle.
 PAR_IDENTIFIANT = {serveur.identifiant: serveur for serveur in SERVEURS}
+
+#: Index par base FHIR, normalisée sans barre oblique finale.
+#:
+#: Un lancement depuis un dossier patient annonce le serveur par son adresse — le paramètre
+#: `iss` de la spécification — et non par un identifiant. Cet index la ramène à un serveur
+#: déclaré : la garde de `PAR_IDENTIFIANT` tient donc aussi pour ce mode, une adresse
+#: absente d'ici n'étant jamais visitée.
+PAR_BASE = {serveur.base.rstrip("/"): serveur for serveur in SERVEURS}
 
 #: Serveur retenu à défaut de choix : le seul dont le parcours d'autorisation soit ouvert.
 DEFAUT = SERVEURS[0]

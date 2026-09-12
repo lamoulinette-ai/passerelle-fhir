@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 
 import httpx
 
-from passerelle.api.patients import PAR_IDENTIFIANT
+from passerelle.api.patients import est_declare
 from passerelle.api.schemas import (
     Consultation,
     ConsultationRendue,
@@ -31,7 +31,7 @@ from passerelle.api.schemas import (
     ProblemeRendu,
     RequeteRendue,
 )
-from passerelle.api.serveurs import SERVEURS, ServeurFhir
+from passerelle.api.serveurs import DEFAUT, SERVEURS, ServeurFhir
 from passerelle.documentaliste.client import Documentaliste
 from passerelle.documentaliste.schemas import Reponse
 from passerelle.fhir.client import ClientFhir, FhirIndisponible
@@ -44,11 +44,19 @@ from passerelle.requete.gabarits import texte as texte_gabarit
 from passerelle.requete.perimetre import pathologie
 from passerelle.smart.decouverte import DecouverteImpossible, decouvrir
 from passerelle.smart.schemas import Jeton
-from passerelle.terminologie.client import Terminologie, TerminologieIndisponible
+from passerelle.terminologie.client import (
+    ConceptInconnu,
+    Terminologie,
+    TerminologieIndisponible,
+)
 
 journal = logging.getLogger("passerelle.api")
 
 TERMINOLOGIE_CONSEQUENCE = "codes SNOMED affichés bruts, sans libellé français"
+
+#: Conséquence d'un code qu'aucun référentiel hébergé ne couvre. Distincte de la précédente :
+#: elle ne porte que sur les codes concernés, les autres ayant bien été résolus.
+HORS_REFERENTIELS_CONSEQUENCE = "ces codes sont affichés bruts ; les autres sont résolus"
 
 #: Concept servant à éprouver le serveur de terminologies au démarrage. Le diabète de type 2
 #: est dans le périmètre, traduit, et stable depuis 2002.
@@ -140,37 +148,53 @@ def serveurs_joignables() -> dict[str, bool]:
         return dict(pool.map(eprouver, SERVEURS))
 
 
-def _autoriser(demande: Consultation, jeton: Jeton | None, tenue: Tenue) -> None:
+def _autoriser(demande: Consultation, jeton: Jeton | None, tenue: Tenue, serveur: str) -> None:
     """Contrôle que le patient demandé est bien celui que la passerelle s'autorise à lire.
 
-    Le serveur amont **n'applique pas** les scopes qu'il accorde : mesuré, un jeton portant
-    un contexte patient lit n'importe quel autre dossier. Ce contrôle est donc le seul qui
-    ait lieu, et son refus n'a de trace nulle part ailleurs qu'ici.
+    Trois contrôles, du plus étroit au plus large :
+
+    1. **une lecture annoncée comme autorisée doit l'être** — un mode `SMART` sans jeton
+       ferait écrire à la trace qu'une autorisation existait, ce qui est le seul mensonge
+       qu'un journal ne doit jamais commettre ;
+    2. **un jeton portant un contexte patient fait loi** — il désigne un dossier et un seul,
+       et le serveur amont **n'applique pas** les scopes qu'il accorde : mesuré, un tel jeton
+       lit n'importe quel autre dossier. Ce contrôle est donc le seul qui ait lieu ;
+    3. **à défaut de contexte, la liste déclarée du serveur** — un jeton de portées `user/`
+       n'en porte légitimement aucun, et en exiger un fermerait un parcours valide. Le
+       plancher reste celui du mode démonstration : un dossier absent de la déclaration n'est
+       jamais lu, quelle que soit l'autorisation obtenue.
+
+    Un refus n'a de trace nulle part ailleurs qu'ici.
     """
     if demande.mode is Mode.SMART:
-        attendu = jeton.patient if jeton else None
-        if not attendu:
-            tenue.refus(demande.patient, "aucun contexte patient dans le jeton")
-            raise PatientRefuse("aucun contexte patient dans le jeton")
-        if demande.patient != attendu:
-            tenue.refus(demande.patient, f"hors du contexte patient du jeton ({attendu})")
-            raise PatientRefuse("patient hors du contexte du jeton")
-        return
+        if jeton is None:
+            tenue.refus(demande.patient, "aucun jeton pour une lecture annoncée autorisée")
+            raise PatientRefuse("aucune autorisation en cours")
+        if jeton.patient:
+            if demande.patient != jeton.patient:
+                tenue.refus(demande.patient, f"hors du contexte du jeton ({jeton.patient})")
+                raise PatientRefuse("patient hors du contexte du jeton")
+            return
 
-    if demande.patient not in PAR_IDENTIFIANT:
-        tenue.refus(demande.patient, "hors de la liste des patients de démonstration")
+    if not est_declare(demande.patient, serveur):
+        tenue.refus(demande.patient, f"hors de la liste déclarée de {serveur}")
         raise PatientRefuse("patient hors démonstration")
 
 
 def _lire(
     demande: Consultation, jeton: Jeton | None, tenue: Tenue, base: str = ""
 ) -> ContextePatient:
-    """Lit le dossier et consigne les deux accès avec leur frontière de confiance."""
+    """Lit le dossier et consigne les deux accès avec leur frontière de confiance.
+
+    L'en-tête d'autorisation part avec la requête **et** décide de ce que la trace écrit :
+    les deux se lisent de la même variable, sans quoi le journal pourrait inscrire une
+    lecture déléguée là où rien n'a été présenté au serveur.
+    """
     entetes = jeton.entete if (demande.mode is Mode.SMART and jeton) else None
     frontiere = Frontiere.DELEGUEE if entetes else Frontiere.AUCUNE
     autorisation = jeton.scope if (entetes and jeton) else ""
 
-    client = ClientFhir(adresse=base or None)
+    client = ClientFhir(adresse=base or None, entetes=entetes)
     try:
         patient = client.patient(demande.patient)
         tenue.lecture(f"Patient/{demande.patient}", "serveur FHIR", frontiere, autorisation)
@@ -186,11 +210,17 @@ def _lire(
 def _resoudre(contexte: ContextePatient, tenue: Tenue) -> list[ProblemeRendu]:
     """Résout les codes en français et rattache ceux dont un parent est au périmètre.
 
-    Une seule dégradation est consignée si le serveur de terminologies ne répond pas : les
-    codes restent bruts, et chaque problème est rendu tel qu'il a été lu.
+    Deux issues sont consignées, et ne se confondent pas :
+
+    - **le serveur ne répond pas** — la boucle cesse de l'interroger, tous les codes restent
+      bruts, et une dégradation le dit ;
+    - **le serveur ne connaît pas un code** — celui-là seul reste brut, et la lecture
+      continue. Le serveur français n'héberge pas tous les référentiels du monde ; un seul
+      code venu d'ailleurs ne doit pas coûter les libellés de tout le dossier.
     """
     terminologie, panne, temoin = Terminologie(), "", ""
     rendus: list[ProblemeRendu] = []
+    inconnus: list[str] = []
     try:
         for probleme in contexte.problemes:
             code = probleme.code
@@ -199,6 +229,8 @@ def _resoudre(contexte: ContextePatient, tenue: Tenue) -> list[ProblemeRendu]:
                 try:
                     concept = terminologie.resoudre(code.systeme, code.code)
                     temoin = temoin or concept.libelle_fr or concept.display or code.code
+                except ConceptInconnu:
+                    inconnus.append(code.systeme)
                 except TerminologieIndisponible as erreur:
                     panne = f"serveur de terminologies injoignable ({erreur})"
                     journal.warning("%s", panne)
@@ -229,12 +261,28 @@ def _resoudre(contexte: ContextePatient, tenue: Tenue) -> list[ProblemeRendu]:
 
     if panne and contexte.problemes:
         tenue.degradation(panne, TERMINOLOGIE_CONSEQUENCE)
+    elif inconnus:
+        tenue.degradation(_hors_referentiels(inconnus), HORS_REFERENTIELS_CONSEQUENCE)
 
     # Un dossier sans problème codé n'apprend rien sur la terminologie : rien n'a été demandé,
     # et noter « injoignable » sur ce silence effacerait une observation valide.
-    if contexte.problemes:
+    #
+    # Un dossier dont aucun code n'a été résolu n'en apprend pas davantage quand la cause est
+    # que le serveur ne les connaissait pas : il a répondu, et le noter injoignable
+    # inscrirait une panne dans `/health` sur la foi d'une réponse correcte.
+    if contexte.problemes and (temoin or panne):
         _noter_terminologie("" if panne else temoin)
     return rendus
+
+
+def _hors_referentiels(systemes: list[str]) -> str:
+    """Nomme les codes qu'aucun référentiel du serveur ne couvre, et d'où ils viennent."""
+    origines = ", ".join(sorted(set(systemes)))
+    pluriel = "s" if len(systemes) > 1 else ""
+    return (
+        f"{len(systemes)} code{pluriel} hors des référentiels hébergés par le serveur "
+        f"français ({origines}) — il a répondu, il ne les connaît pas"
+    )
 
 
 class ConditionInconnue(LookupError):
@@ -363,17 +411,22 @@ def _obtenir(texte: str, gabarit: str, tenue: Tenue) -> tuple[Reponse | None, st
 
 
 def consulter(
-    demande: Consultation, jeton: Jeton | None = None, base: str = ""
+    demande: Consultation, jeton: Jeton | None = None, serveur: ServeurFhir = DEFAUT
 ) -> tuple[ConsultationRendue, Trace]:
-    """Déroule une consultation et rend le résultat avec sa trace."""
+    """Déroule une consultation et rend le résultat avec sa trace.
+
+    Le serveur est reçu **déjà résolu**, jamais choisi ici : c'est la route qui ramène un
+    identifiant ou une session à l'un des serveurs déclarés, et cette garde ne doit pas
+    pouvoir être contournée en appelant le service directement.
+    """
     tenue = Tenue(mode=demande.mode, contexte_patient=demande.patient)
     if jeton is not None:
         tenue.autorise(jeton.scopes)
 
-    _autoriser(demande, jeton, tenue)
+    _autoriser(demande, jeton, tenue, serveur.identifiant)
 
     try:
-        contexte = _lire(demande, jeton, tenue, base)
+        contexte = _lire(demande, jeton, tenue, serveur.base)
     except FhirIndisponible as erreur:
         tenue.degradation(f"serveur FHIR injoignable ({erreur})", "aucun dossier lu")
         trace = tenue.close()

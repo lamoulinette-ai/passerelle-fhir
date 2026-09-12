@@ -42,6 +42,18 @@ class TerminologieIndisponible(RuntimeError):
     """Le serveur de terminologies n'a pas répondu, ou a répondu autre chose qu'un concept."""
 
 
+class ConceptInconnu(TerminologieIndisponible):
+    """Le serveur a répondu, et ne connaît ni ce code ni ce système.
+
+    Distincte d'une panne, et la distinction n'est pas cosmétique : le serveur français
+    n'héberge pas tous les référentiels du monde, et un dossier venu d'ailleurs en porte.
+    Appeler cela une indisponibilité ferait passer une réponse juste pour un incident.
+
+    Sous-classe plutôt qu'exception indépendante : un appelant qui ne fait pas la différence
+    — les sondes, par exemple — continue de fonctionner sans rien savoir de ce cas.
+    """
+
+
 def base() -> str:
     """Base du serveur de terminologies, lue dans l'environnement."""
     return os.environ.get("PASSERELLE_SMT_BASE", "").strip() or BASE_DEFAUT
@@ -127,6 +139,13 @@ class Terminologie:
             reponse = self._client.get(f"{self.adresse}/CodeSystem/$lookup", params=parametres)
             reponse.raise_for_status()
             charge = reponse.json()
+        except httpx.HTTPStatusError as erreur:
+            # Une adresse de base erronée rendrait 404 elle aussi. Ce cas-là est couvert
+            # ailleurs : le concept témoin est éprouvé au démarrage du service, et son échec
+            # est une indisponibilité déclarée avant la première consultation.
+            if erreur.response.status_code == httpx.codes.NOT_FOUND:
+                raise ConceptInconnu(f"{systeme}|{code}") from erreur
+            raise TerminologieIndisponible(f"{systeme}|{code} : {erreur}") from erreur
         except httpx.HTTPError as erreur:
             raise TerminologieIndisponible(f"{systeme}|{code} : {erreur}") from erreur
         except ValueError as erreur:

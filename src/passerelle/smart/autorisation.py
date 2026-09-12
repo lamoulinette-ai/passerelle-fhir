@@ -15,7 +15,13 @@ from urllib.parse import urlencode
 
 import httpx
 
-from passerelle.smart.schemas import SCOPES_DEFAUT, ConfigurationSmart, Demande, Jeton
+from passerelle.smart.schemas import (
+    SCOPES_DEFAUT,
+    SCOPES_EHR_DEFAUT,
+    ConfigurationSmart,
+    Demande,
+    Jeton,
+)
 
 journal = logging.getLogger("passerelle.smart")
 
@@ -27,12 +33,31 @@ class AutorisationRefusee(RuntimeError):
 
 
 def client_id() -> str:
-    """Identifiant de client, lu dans l'environnement."""
-    return os.environ.get("PASSERELLE_SMART_CLIENT_ID", "").strip() or CLIENT_DEFAUT
+    """Identifiant de client, lu dans l'environnement.
+
+    Le repli est annoncé : un serveur qui exige l'enregistrement de l'application refuse
+    l'identifiant par défaut, et son message ne nomme pas la variable qui manquait.
+    """
+    declare = os.environ.get("PASSERELLE_SMART_CLIENT_ID", "").strip()
+    if declare:
+        return declare
+    journal.warning(
+        "PASSERELLE_SMART_CLIENT_ID absent — repli sur « %s », que tout serveur exigeant "
+        "un enregistrement refusera",
+        CLIENT_DEFAUT,
+    )
+    return CLIENT_DEFAUT
 
 
-def scopes() -> str:
-    """Scopes demandés, lus dans l'environnement."""
+def scopes(ehr: bool = False) -> str:
+    """Scopes demandés, lus dans l'environnement.
+
+    Les deux modes de lancement ne demandent pas la même portée de contexte : `launch`
+    quand le dossier fournit un jeton de lancement, `launch/patient` quand il faut que le
+    serveur d'autorisation désigne lui-même le patient.
+    """
+    if ehr:
+        return os.environ.get("PASSERELLE_SMART_SCOPES_EHR", "").strip() or SCOPES_EHR_DEFAUT
     return os.environ.get("PASSERELLE_SMART_SCOPES", "").strip() or SCOPES_DEFAUT
 
 
@@ -56,8 +81,17 @@ def demander(
     base: str,
     redirection: str,
     lancement: str | None = None,
+    portees: str = "",
 ) -> Demande:
-    """Construit l'URL d'autorisation et l'état à conserver jusqu'au retour."""
+    """Construit l'URL d'autorisation et l'état à conserver jusqu'au retour.
+
+    La présence de `lancement` décide du mode : elle ajoute le paramètre `launch` et
+    commande les scopes, les deux allant toujours ensemble.
+
+    `portees` l'emporte sur l'environnement quand il est fourni. Le chemin vif ne s'en sert
+    pas : c'est aux sondes qu'il faut pouvoir demander une liste de portées choisie, sans
+    quoi elles ne mesureraient que la configuration déployée.
+    """
     if not configuration.pkce_s256:
         journal.warning("le serveur n'annonce pas PKCE S256 — la demande le propose tout de même")
 
@@ -65,7 +99,7 @@ def demander(
     parametres = {
         "response_type": "code",
         "client_id": client_id(),
-        "scope": scopes(),
+        "scope": portees or scopes(ehr=bool(lancement)),
         "redirect_uri": redirection,
         "aud": base,
         "state": etat,

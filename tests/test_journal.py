@@ -99,17 +99,18 @@ class TestInterrogations:
 
 
 class TestProblemes:
-    def test_la_trace_distingue_vus_et_retenus(self) -> None:
+    def test_la_trace_consigne_tous_les_problemes_lus(self) -> None:
+        """Aucun n'est écarté : la trace doit les porter tous, quelle que soit la formulation."""
         trace = _trace_complete().close()
-        assert len(trace.problemes) == 2
-        assert len(trace.retenus) == 1
-        assert trace.retenus[0].code == "44054006"
+        assert {p.code for p in trace.problemes} == {"44054006", "15777000"}
 
-    def test_un_probleme_hors_perimetre_reste_consigne(self) -> None:
-        """C'est ce qui permet de vérifier que les écartés l'étaient à bon droit."""
+    def test_la_trace_dit_quelle_formulation_chaque_probleme_aurait(self) -> None:
+        """Le drapeau ne sélectionne rien ; il annonce une tournure mesurée ou libre."""
         trace = _trace_complete().close()
-        hors = [p for p in trace.problemes if not p.dans_le_perimetre]
-        assert len(hors) == 1 and hors[0].code == "15777000"
+        mesures = [p for p in trace.problemes if p.dans_le_perimetre]
+        libres = [p for p in trace.problemes if not p.dans_le_perimetre]
+        assert [p.code for p in mesures] == ["44054006"]
+        assert [p.code for p in libres] == ["15777000"]
 
     def test_le_statut_clinique_est_conserve(self) -> None:
         assert all(p.statut == "active" for p in _trace_complete().close().problemes)

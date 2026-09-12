@@ -1,6 +1,6 @@
 """Ce que le navigateur reçoit au retour d'un parcours d'autorisation.
 
-Trois propriétés priment, et chacune répare un défaut que ce lot corrige :
+Quatre propriétés priment, et les trois premières réparent un défaut que ce lot corrige :
 
 - **le retour redirige, il ne rend jamais de JSON** — cette route est atteinte par une
   navigation, pas par un appel de la page : rendre un objet y laisserait le visiteur devant
@@ -9,7 +9,9 @@ Trois propriétés priment, et chacune répare un défaut que ce lot corrige :
   est remplacé par un motif d'un vocabulaire fermé, sans quoi un tiers écrirait dans notre
   interface ;
 - **`/smart/etat` ne rend pas le jeton** — il reste côté serveur, derrière un témoin
-  `httponly`, et le publier le mettrait à portée de n'importe quel script de la page.
+  `httponly`, et le publier le mettrait à portée de n'importe quel script de la page ;
+- **une session se ferme** — sans quoi un visiteur connecté ne pourrait plus revenir au
+  choix du serveur, et son jeton resterait en mémoire jusqu'à sa péremption.
 """
 
 from __future__ import annotations
@@ -151,6 +153,36 @@ class TestEtat:
         rendue = client.get("/smart/etat").text
         assert "secret-du-serveur" not in rendue
         assert "access_token" not in rendue
+
+
+class TestDeconnexion:
+    """Sans elle, un visiteur connecté ne peut plus revenir au choix du serveur."""
+
+    def test_la_session_ne_survit_pas_a_la_deconnexion(self, client: TestClient) -> None:
+        _autoriser(client, Jeton(access_token="s", scope="s", patient=PATIENT))
+        assert client.post("/smart/deconnexion").status_code == 200
+        assert client.get("/smart/etat").json()["autorisee"] is False
+
+    def test_le_jeton_est_retire_de_la_memoire(self, client: TestClient) -> None:
+        """Effacer le témoin ne suffirait pas : le jeton resterait côté serveur."""
+        _autoriser(client, Jeton(access_token="s", scope="s", patient=PATIENT))
+        client.post("/smart/deconnexion")
+        assert module.sessions.lire(SESSION) is None
+
+    def test_le_temoin_est_efface(self, client: TestClient) -> None:
+        _autoriser(client, Jeton(access_token="s", scope="s", patient=PATIENT))
+        reponse = client.post("/smart/deconnexion")
+        assert module.TEMOIN in reponse.headers.get("set-cookie", "")
+
+    def test_sans_temoin_elle_repond_quand_meme(self, client: TestClient) -> None:
+        """Idempotente : un second clic, ou un témoin déjà expiré, n'est pas une erreur."""
+        reponse = client.post("/smart/deconnexion")
+        assert reponse.status_code == 200
+        assert reponse.json()["autorisee"] is False
+
+    def test_elle_nomme_le_serveur_par_defaut(self, client: TestClient) -> None:
+        """La page revient au choix : elle doit savoir contre quoi elle se connecterait."""
+        assert client.post("/smart/deconnexion").json()["serveur"]
 
 
 class TestChoixDuServeur:
